@@ -36,8 +36,8 @@ public class LSHFIndexTest {
         }
         
         @Override
-        public int getValue(int i) {
-            return values[i];
+        public short getValue(int i) {
+            return (short) values[i];
         }
         
         @Override
@@ -67,9 +67,9 @@ public class LSHFIndexTest {
             Vector100DKey key3 = new Vector100DKey(vec3);
             
             // Create dummy RID objects.
-            RID rid1 = new RID(new DummyPageId(1));
-            RID rid2 = new RID(new DummyPageId(2));
-            RID rid3 = new RID(new DummyPageId(3));
+            RID rid1 = new RID(new DummyPageId(1), 0);
+            RID rid2 = new RID(new DummyPageId(2), 0);
+            RID rid3 = new RID(new DummyPageId(3), 0);
             
             // --- Test Insertion ---
             index.insert(key1, rid1);
