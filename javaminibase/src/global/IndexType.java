@@ -11,6 +11,8 @@ public class IndexType {
   public static final int B_Index = 1;
   public static final int Hash    = 2;
 
+  public static final int LSHFIndex = 3;
+
   public int indexType;
 
   /** 
@@ -41,6 +43,8 @@ public class IndexType {
       return "B_Index";
     case Hash:
       return "Hash";
+    case LSHFIndex:  
+      return "LSH‐Forest Index";
     }
     return ("Unexpected IndexType " + indexType);
   }
