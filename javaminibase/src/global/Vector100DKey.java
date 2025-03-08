@@ -2,7 +2,7 @@ package global;
 
 import btree.KeyClass;
 
-public class Vector100DKey implements KeyClass {
+public class Vector100DKey extends KeyClass {
     public Vector100Dtype key;
     
     public Vector100DKey(Vector100Dtype key) {
