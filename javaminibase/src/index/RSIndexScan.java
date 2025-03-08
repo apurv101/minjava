@@ -1,5 +1,6 @@
 package index;
 
+import heap.Tuple;
 import global.AttrType;
 import global.IndexType;
 import global.Vector100Dtype;
