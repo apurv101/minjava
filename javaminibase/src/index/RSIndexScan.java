@@ -2,16 +2,20 @@ package index;
 
 import global.*;
 import heap.Heapfile;
-import iterator.*;
+import heap.Tuple;
+import iterator.CondExpr;
+import iterator.FldSpec;
+import iterator.Iterator;
+import iterator.Projection;
+import iterator.PredEval;
+import global.RID;
 import LSHFIndex.LSHFIndex;
 import LSHFIndex.LSHFFileRangeScan;
 import LSHFIndex.Vector100DKey;
+import btree.KeyClass;
 
-/**
- * RSIndexScan implements a new range-search index scan.
- */
 public class RSIndexScan extends Iterator {
-  
+
   private AttrType[] types;
   private short[] str_sizes;
   private int noInFlds;
@@ -56,36 +60,33 @@ public class RSIndexScan extends Iterator {
     
     hf = new Heapfile(relName);
     
-    if(index.indexType != IndexType.LSHFIndex)
+    if (index.indexType != IndexType.LSHFIndex)
       throw new UnsupportedOperationException("RSIndexScan only supports LSHFIndex.");
     
-    // Open the LSHF index
-    lshIndex = new LSHFIndex(indName, 3, 4); // Example: h=3, L=4; adjust as needed.
+    // Create the LSHFIndex with example parameters (adjust h and L as needed)
+    lshIndex = new LSHFIndex(indName, 3, 4);
     
     // Open a range scan on the LSHF index.
     rangeScan = lshIndex.rangeSearch(new Vector100DKey(query), distance);
     
     op_buf = new Tuple();
-    // Set header for op_buf as needed
-    op_buf.setHdr((short)noOutFlds, types, str_sizes);
+    op_buf.setHdr((short) noOutFlds, types, str_sizes);
   }
   
-  @Override
   public Tuple get_next() throws Exception {
-    if(done) return null;
+    if (done) return null;
     
     RID rid = new RID();
     KeyClass key = rangeScan.get_next(rid);
-    if(key == null) {
+    if (key == null) {
       done = true;
       return null;
     }
     
     Tuple t = hf.getRecord(rid);
-    // Evaluate condition (if any)
-    if(PredEval.Eval(selects, t, null, types, null)) {
+    if (PredEval.Eval(selects, t, null, types, null)) {
       Tuple proj = new Tuple();
-      proj.setHdr((short)noOutFlds, types, str_sizes);
+      proj.setHdr((short) noOutFlds, types, str_sizes);
       Projection.Project(t, types, proj, outFlds, noOutFlds);
       return proj;
     } else {
@@ -93,12 +94,13 @@ public class RSIndexScan extends Iterator {
     }
   }
   
-  @Override
   public void close() {
-    if(!done) {
+    if (!done) {
       try {
         rangeScan.close();
-      } catch(Exception e) { /* handle exception */ }
+      } catch(Exception e) {
+        // Optionally log the error
+      }
       done = true;
     }
   }
