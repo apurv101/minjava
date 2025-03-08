@@ -1,8 +1,11 @@
 package lshfindex;
 
-import index.Iterator;
-import global.*;
-import heap.*;
+import index.IndexException;
+import global.AttrType;
+import global.Vector100Dtype;
+import heap.Tuple;
+import heap.RID;
+import iterator.Iterator;
 import java.io.IOException;
 import java.util.List;
 
@@ -10,8 +13,8 @@ public class LSHFFileNNScan extends Iterator {
     private List<LSHFEntry> entries;
     private int current;
     
-    public LSHFFileNNScan(LSHFIndex index, KeyClass key, int count) throws IOException, IndexException {
-        if (!(key instanceof Vector100DKey))
+    public LSHFFileNNScan(LSHFIndex index, global.KeyClass key, int count) throws IOException, IndexException {
+        if (!(key instanceof global.Vector100DKey))
             throw new IndexException("Key must be of type Vector100DKey");
         entries = index.nnSearch(key, count);
         current = 0;
@@ -22,8 +25,8 @@ public class LSHFFileNNScan extends Iterator {
         LSHFEntry entry = entries.get(current++);
         Tuple t = new Tuple();
         AttrType[] types = new AttrType[2];
-        types[0] = new AttrType(AttrType.attrVector100D);
-        types[1] = new AttrType(AttrType.attrInteger);
+        types[0] = new AttrType(global.AttrType.attrVector100D);
+        types[1] = new AttrType(global.AttrType.attrInteger);
         short[] strSizes = new short[1];
         strSizes[0] = 0;
         try {

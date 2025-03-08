@@ -2,9 +2,8 @@ package lshfindex;
 
 import global.*;
 import heap.RID;
-import index.KeyClass;
+import btree.KeyClass;
 import index.IndexException;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -12,7 +11,7 @@ import java.util.List;
 public class LSHFIndex {
     private int h;  // number of hash functions per layer
     private int L;  // number of layers
-    // For simplicity, we store all entries in a list.
+    // For simplicity, we store all entries in an in‑memory list.
     private List<LSHFEntry> entries;
     
     public LSHFIndex(int h, int L) {
