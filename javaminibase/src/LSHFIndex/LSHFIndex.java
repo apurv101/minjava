@@ -72,6 +72,13 @@ public class LSHFIndex {
             count = result.size();
         return result.subList(0, count);
     }
+
+    public void writeIndexToFile(String filename) throws IOException {
+        // Implement your index persistence here.
+        // For simulation purposes, you might just write a simple message or serialize your index.
+        System.out.println("Simulating writing index to file: " + filename);
+        // Optionally, write to a file using FileOutputStream, etc.
+    }
     
     // Helper method: compute Euclidean distance between two vectors (rounded to int).
     private int computeDistance(Vector100Dtype v1, Vector100Dtype v2) {
