@@ -78,5 +78,13 @@ lshfindextest: LSHFIndexTest
 	$(JAVA) tests.LSHFIndexTest
 
 
+# test buffer manager
+RSNNTest:RSNNTest.java
+	$(JAVAC) TestDriver.java RSNNTest.java
+
+rsnntest: RSNNTest
+	$(JAVA) tests.RSNNTest
+
+
 
 

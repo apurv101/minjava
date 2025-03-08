@@ -47,6 +47,9 @@ test:
 lshfindextest:
 	cd tests; make lshfindextest
 
+rsnntest:
+	cd tests; make rsnntest
+
 clean:
 	\rm -f $(CLASSPATH)/*.class *~ \#* core $(JARFILES) TRACE
 
