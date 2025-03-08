@@ -129,10 +129,43 @@ public class PredEval
 	      // Got the arguments, now perform a comparison.
 	      try {
 		comp_res = TupleUtils.CompareTupleWithTuple(comparison_type, tuple1, fld1, tuple2, fld2);
+
 	      }catch (TupleUtilsException e){
 		throw new PredEvalException (e,"TupleUtilsException is caught by PredEval.java");
 	      }
+
 	      op_res = false;
+
+
+		  if (comparison_type.attrType == AttrType.attrVector100D) {
+			float distVal = (float) comp_res;  // or comp_res is an int
+			float thresh  = temp_ptr.distance; // from CondExpr
+
+			switch (temp_ptr.op.attrOperator) {
+			case AttrOperator.aopEQ:
+				op_res = (distVal == thresh);
+				break;
+			case AttrOperator.aopLT:
+				op_res = (distVal < thresh);
+				break;
+			case AttrOperator.aopLE:
+				op_res = (distVal <= thresh);
+				break;
+			case AttrOperator.aopGT:
+				op_res = (distVal > thresh);
+				break;
+			case AttrOperator.aopGE:
+				op_res = (distVal >= thresh);
+				break;
+			case AttrOperator.aopNE:
+				op_res = (distVal != thresh);
+				break;
+			default:
+				// possibly handle aopNOT or else
+				break;
+			}
+
+		} else {
 	      
 	      switch (temp_ptr.op.attrOperator)
 		{
@@ -159,6 +192,8 @@ public class PredEval
 		  break;
 		default:
 		  break;
+		}
+
 		}
 	      
 	      row_res = row_res || op_res;

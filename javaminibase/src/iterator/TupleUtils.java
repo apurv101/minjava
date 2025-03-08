@@ -79,6 +79,28 @@ public class TupleUtils
 	  if(t1_s.compareTo( t2_s)>0)return 1;
 	  if (t1_s.compareTo( t2_s)<0)return -1;
 	  return 0;
+
+  case AttrType.attrVector100D:
+    try {
+      // Get the vector field from each tuple
+      Vector100Dtype v1 = t1.get100DVectFld(t1_fld_no);
+      Vector100Dtype v2 = t2.get100DVectFld(t2_fld_no);
+
+      // Compute Euclidean distance or whatever measure:
+      float dist = 0.0f;
+      for (int i = 0; i < 100; i++) {
+        int diff = v1.getValue(i) - v2.getValue(i);
+        dist += (diff * diff);
+      }
+      dist = (float)Math.sqrt(dist);
+
+      // Return the integer version of that distance
+      return (int) dist;
+    } 
+    catch (FieldNumberOutOfBoundException e) {
+      throw new TupleUtilsException(e, "FieldNumberOutOfBound in CompareTupleWithTuple");
+    }
+
 	default:
 	  
 	  throw new UnknowAttrType(null, "Don't know how to handle attrSymbol, attrNull");

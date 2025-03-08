@@ -37,6 +37,10 @@ public class CondExpr {
   /**
    *constructor
    */
+
+  public float distance; 
+
+  
   public  CondExpr() {
     
     operand1 = new Operand();
