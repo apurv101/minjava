@@ -44,6 +44,15 @@ public class Sort extends Iterator implements GlobalConst
   private SpoofIbuf[]  i_buf;
   private PageId[]     bufs_pids;
   private boolean useBM = true; // flag for whether to use buffer manager
+
+  private Vector100Dtype _target;
+  private int _k;
+  private boolean _isVectorSort;
+
+  private int _countFetched = 0;
+
+  
+
   
   /**
    * Set up for merging the runs.
@@ -652,6 +661,51 @@ public class Sort extends Iterator implements GlobalConst
       throw new SortException(e, "Sort.java: op_buf.setHdr() failed");
     }
   }
+
+
+  /**
+ * New constructor for top-k vector sorting. If the user sorts on attrVector100D,
+ * we compute distance from a target vector and either:
+ *   - If k=0, sort all tuples ascending by distance.
+ *   - If k>0, return only the top k nearest (smallest distance) in ascending order.
+ */
+public Sort(
+    AttrType[] in,
+    short len_in,
+    short[] str_sizes,
+    Iterator am,
+    int sort_fld,
+    TupleOrder sort_order,
+    int sort_fld_len,
+    int n_pages,
+    Vector100Dtype target,  // new
+    int k                   // new
+) throws IOException, SortException
+{
+    // Reuse the existing “basic” constructor to initialize most fields:
+    this(in, len_in, str_sizes, am, sort_fld, sort_order, sort_fld_len, n_pages);
+
+    // Then store the new parameters in private fields you define:
+    this._targetVector = targetVector;
+    this._k            = k;
+
+    // If we’re sorting on a vector field, we’ll do some extra logic
+    // (We’ll define _vectorSort, _distanceSort, etc.)
+    if (in[sort_fld - 1].attrType == AttrType.attrVector100D) {
+        _isVectorSort = true;
+    } else {
+        _isVectorSort = false;
+    }
+}
+
+
+
+
+
+
+
+
+
   
   /**
    * Returns the next tuple in sorted order.
@@ -684,6 +738,12 @@ public class Sort extends Iterator implements GlobalConst
       // setup state to perform merge of runs. 
       // Open input buffers for all the input file
       setup_for_merge(tuple_size, Nruns);
+      _countFetched = 0;  // NEW: track how many we've returned
+    }
+
+    if (_k > 0 && _countFetched >= _k) {
+        // Already returned k nearest, done
+        return null;
     }
     
     if (Q.empty()) {  
@@ -692,12 +752,19 @@ public class Sort extends Iterator implements GlobalConst
     }
     
     output_tuple = delete_min();
-    if (output_tuple != null){
-      op_buf.tupleCopy(output_tuple);
-      return op_buf; 
-    }
-    else 
-      return null; 
+    // if (output_tuple != null){
+    //   op_buf.tupleCopy(output_tuple);
+    //   return op_buf; 
+    // }
+    // else 
+    //   return null; 
+
+    if (output_tuple == null) return null;
+
+    _countFetched++;
+    op_buf.tupleCopy(output_tuple);
+    return op_buf;
+    
   }
 
   /**
