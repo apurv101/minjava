@@ -191,6 +191,10 @@ public class Tuple implements GlobalConst{
     * @exception   FieldNumberOutOfBoundException Tuple field number out of bound
     */
 
+
+
+  
+
   public int getIntFld(int fldNo) 
   	throws IOException, FieldNumberOutOfBoundException
   {           
@@ -319,6 +323,37 @@ public class Tuple implements GlobalConst{
      
   }
 
+
+  // -------------- GET 100D VECTOR --------------
+public Vector100Dtype get100DVectFld(int fldNo)
+       throws IOException, FieldNumberOutOfBoundException
+{
+    if ((fldNo <= 0) || (fldNo > fldCnt)) {
+        throw new FieldNumberOutOfBoundException(null, "TUPLE:FIELNO_OUT_OF_BOUND");
+    }
+
+    // Use the offset array to find the correct position
+    int pos = fldOffset[fldNo - 1];
+    // Rely on Convert to parse the 100D vector from data
+    return Convert.get100DVectorValue(pos, data);
+}
+
+// -------------- SET 100D VECTOR --------------
+public Tuple set100DVectFld(int fldNo, Vector100Dtype val)
+       throws IOException, FieldNumberOutOfBoundException
+{
+    if ((fldNo <= 0) || (fldNo > fldCnt)) {
+        throw new FieldNumberOutOfBoundException(null, "TUPLE:FIELNO_OUT_OF_BOUND");
+    }
+
+    int pos = fldOffset[fldNo - 1];
+    Convert.set100DVectorValue(val, pos, data);
+    return this;
+}
+
+
+
+
   /**
    * Set this field to String value
    *
@@ -390,7 +425,12 @@ public void setHdr (short numFlds,  AttrType types[], short strSizes[])
    case AttrType.attrString:
      incr = (short) (strSizes[strCount] +2);  //strlen in bytes = strlen +2
      strCount++;
-     break;       
+     break;
+
+   case AttrType.attrVector100D:
+    // We store 100 * 2 bytes = 200 bytes for the vector
+    incr = 200;
+    break;       
  
    default:
     throw new InvalidTypeException (null, "TUPLE: TUPLE_TYPE_ERROR");
