@@ -1,10 +1,10 @@
-package lshfindex;
+package LSHFIndex;
 
 import index.IndexException;
 import global.AttrType;
 import global.Vector100Dtype;
 import heap.Tuple;
-import heap.RID;
+import global.RID;
 import iterator.Iterator;
 import java.io.IOException;
 import java.util.List;

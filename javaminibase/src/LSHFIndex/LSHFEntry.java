@@ -1,7 +1,7 @@
-package lshfindex;
+package LSHFIndex;
 
 import global.Vector100DKey;
-import heap.RID;
+import global.RID;
 
 public class LSHFEntry {
     public Vector100DKey key;

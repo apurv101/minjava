@@ -1,7 +1,7 @@
-package lshfindex;
+package LSHFIndex;
 
 import global.*;
-import heap.RID;
+import global.RID;
 import btree.KeyClass;
 import index.IndexException;
 import java.io.IOException;
