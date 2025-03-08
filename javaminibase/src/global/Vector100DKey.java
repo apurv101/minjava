@@ -1,6 +1,6 @@
 package global;
 
-import index.KeyClass;
+import btree.KeyClass;
 
 public class Vector100DKey implements KeyClass {
     public Vector100Dtype key;
