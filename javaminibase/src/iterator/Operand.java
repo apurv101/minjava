@@ -1,6 +1,6 @@
 package iterator;
 
-
+import global.Vector100Dtype;
 
 public class Operand {
   public  FldSpec  symbol;
