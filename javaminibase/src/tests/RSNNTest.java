@@ -4,6 +4,7 @@ import index.*;
 import LSHFIndex.LSHFIndex;
 import LSHFIndex.LSHFEntry;
 import global.*;
+import global.IndexType;
 import heap.Tuple;
 import iterator.CondExpr;
 import iterator.FldSpec;
