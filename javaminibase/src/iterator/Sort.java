@@ -45,7 +45,7 @@ public class Sort extends Iterator implements GlobalConst
   private PageId[]     bufs_pids;
   private boolean useBM = true; // flag for whether to use buffer manager
 
-  private Vector100Dtype _target;
+  private Vector100Dtype _targetVector;
   private int _k;
   private boolean _isVectorSort;
 
