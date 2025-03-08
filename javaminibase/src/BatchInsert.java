@@ -68,7 +68,7 @@ public class BatchInsert {
                 // For every vector attribute, update the corresponding index.
                 for (int i = 0; i < nAttrs; i++) {
                     if (attrTypes[i] == 4) {
-                        int[] vectorData = parseVector(tupleValues[i]);
+                        short[] vectorData = parseVector(tupleValues[i]);
                         // Wrap the integer array in a Vector100Dtype (adjust constructor as needed)
                         Vector100Dtype vector = new Vector100Dtype(vectorData);
                         Vector100DKey key = new Vector100DKey(vector);
@@ -115,11 +115,11 @@ public class BatchInsert {
     
     // Parses a line containing 100 integers (separated by whitespace)
     // and returns them as an int array.
-    private static int[] parseVector(String line) {
+    private static short[] parseVector(String line) {
         String[] tokens = line.trim().split("\\s+");
-        int[] vector = new int[tokens.length];
+        short[] vector = new short[tokens.length];
         for (int i = 0; i < tokens.length; i++) {
-            vector[i] = Integer.parseInt(tokens[i]);
+            vector[i] = (short) Integer.parseInt(tokens[i]);
         }
         return vector;
     }
