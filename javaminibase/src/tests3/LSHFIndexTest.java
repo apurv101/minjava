@@ -5,6 +5,7 @@ import LSHFIndex.LSHFEntry;
 import global.Vector100DKey;
 import global.Vector100Dtype;
 import global.RID;
+import global.PageId; // import the PageId class
 import index.IndexException;
 
 import java.io.IOException;
@@ -13,13 +14,15 @@ import java.util.List;
 public class LSHFIndexTest {
     
     // Dummy implementation of a page identifier for testing purposes.
-    public static class DummyPageId {
-        public int pid;
+    // Now DummyPageId extends PageId so it can be used with RID.
+    public static class DummyPageId extends PageId {
         public DummyPageId(int pid) {
-            this.pid = pid;
+            super(pid); // Assuming PageId has a constructor that accepts an int
         }
+        
+        @Override
         public String toString() {
-            return "DummyPageId(" + pid + ")";
+            return "DummyPageId(" + this.pid + ")";
         }
     }
     
@@ -66,7 +69,7 @@ public class LSHFIndexTest {
             Vector100DKey key2 = new Vector100DKey(vec2);
             Vector100DKey key3 = new Vector100DKey(vec3);
             
-            // Create dummy RID objects.
+            // Create dummy RID objects using the new DummyPageId.
             RID rid1 = new RID(new DummyPageId(1), 0);
             RID rid2 = new RID(new DummyPageId(2), 0);
             RID rid3 = new RID(new DummyPageId(3), 0);
