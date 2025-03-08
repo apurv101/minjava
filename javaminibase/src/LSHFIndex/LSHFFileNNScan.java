@@ -1,41 +1,40 @@
-package LSHFIndex;
+package lshfindex;
 
+import index.Iterator;
+import global.*;
+import heap.*;
 import java.io.IOException;
-import btree.KeyClass;
-import global.RID;
-import index.IndexScan;
+import java.util.List;
 
-/**
- * A nearest neighbor scan for LSHFIndex. This class returns key/RID pairs
- * for the top k nearest vectors to the query vector.
- */
-public class LSHFFileNNScan extends IndexScan {
-
-  private LSHFIndex lshIndex;
-  private KeyClass queryKey;
-  private int count;  // number of nearest neighbors to return
-  
-  public LSHFFileNNScan(LSHFIndex idx, KeyClass key, int count) {
-    this.lshIndex = idx;
-    this.queryKey = key;
-    this.count = count;
-    // Initialize internal data structures for nearest neighbor search.
-  }
-  
-  @Override
-  public KeyClass get_next(RID rid) throws IOException {
-    // Return the next nearest key and set 'rid' accordingly.
-    // For this stub, simply return null.
-    return null;
-  }
-  
-  @Override
-  public void delete_current() throws IOException {
-    // Optionally support deletion.
-  }
-  
-  @Override
-  public void close() {
-    // Clean up resources.
-  }
+public class LSHFFileNNScan extends Iterator {
+    private List<LSHFEntry> entries;
+    private int current;
+    
+    public LSHFFileNNScan(LSHFIndex index, KeyClass key, int count) throws IOException, IndexException {
+        if (!(key instanceof Vector100DKey))
+            throw new IndexException("Key must be of type Vector100DKey");
+        entries = index.nnSearch(key, count);
+        current = 0;
+    }
+    
+    public Tuple get_next() throws IOException, IndexException {
+        if (current >= entries.size()) return null;
+        LSHFEntry entry = entries.get(current++);
+        Tuple t = new Tuple();
+        AttrType[] types = new AttrType[2];
+        types[0] = new AttrType(AttrType.attrVector100D);
+        types[1] = new AttrType(AttrType.attrInteger);
+        short[] strSizes = new short[1];
+        strSizes[0] = 0;
+        try {
+            t.setHdr((short)2, types, strSizes);
+            t.set100DVectFld(1, entry.key.key);
+            t.setIntFld(2, entry.rid.pageNo.pid);
+        } catch (Exception e) {
+            throw new IndexException(e, "Error building tuple in LSHFFileNNScan");
+        }
+        return t;
+    }
+    
+    public void close() throws IOException, IndexException { }
 }
