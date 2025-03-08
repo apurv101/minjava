@@ -10,7 +10,7 @@ import index.IndexException;
 import java.io.IOException;
 import java.util.List;
 
-public class IndexTest {
+public class LSHFIndexTest {
     
     // Dummy implementation of a page identifier for testing purposes.
     public static class DummyPageId {
