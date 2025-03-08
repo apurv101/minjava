@@ -6,8 +6,8 @@ import global.Vector100Dtype;
 import global.Vector100DKey;
 import global.RID;
 import index.IndexException;
-import lshfindex.LSHFIndex;
-import lshfindex.LSHFEntry;
+import LSHFIndex.LSHFIndex;
+import LSHFIndex.LSHFEntry;
 import iterator.FldSpec;
 import iterator.CondExpr;
 import iterator.Iterator;
@@ -94,3 +94,6 @@ public class RSIndexScan extends Iterator {
         // No resources to close in this in-memory simulation.
     }
 }
+
+
+// testing
