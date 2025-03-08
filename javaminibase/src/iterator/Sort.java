@@ -678,8 +678,8 @@ public Sort(
     TupleOrder sort_order,
     int sort_fld_len,
     int n_pages,
-    Vector100Dtype target,  // new
-    int k                   // new
+    Vector100Dtype targetVector,    // NEW
+    int k                           // NEW
 ) throws IOException, SortException
 {
     // Reuse the existing “basic” constructor to initialize most fields:
