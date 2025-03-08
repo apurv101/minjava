@@ -1,139 +1,105 @@
 package index;
 
 import global.*;
-import heap.*;
+import heap.Heapfile;
 import iterator.*;
-import LSHFIndex.LSHFIndex;      // your new package
-import LSHFIndex.LSHFFileRangeScan; // specialized range scan
-import btree.KeyClass;
+import LSHFIndex.LSHFIndex;
+import LSHFIndex.LSHFFileRangeScan;
+import LSHFIndex.Vector100DKey;
 
 /**
- * RSIndexScan (Range Search Index Scan)
- * This class acts like an iterator that returns tuples from
- * a heapfile that lie within a certain "distance" of a given query vector.
+ * RSIndexScan implements a new range-search index scan.
  */
 public class RSIndexScan extends Iterator {
-
-  private AttrType[] _types;
-  private short[] _str_sizes;
-  private int _noInFlds;
-  private int _noOutFlds;
-  private FldSpec[] _outFlds;
-  private CondExpr[] _selects;
-  private int _fldNum;
-  private Vector100Dtype _query;
-  private int _distance;
-
-  private Heapfile _hf;
-  private LSHFIndex _lshIndex;
-  private LSHFFileRangeScan _rangeScan;
   
-  private Tuple _tuple;
-  private boolean _done;
-
-  /**
-   * RSIndexScan constructor
-   *
-   * @param index      The type of index (should be LSHFIndex).
-   * @param relName    The heapfile name for the underlying relation.
-   * @param indName    The filename for the index itself (the LSHF file).
-   * @param types      The attribute types of the relation
-   * @param str_sizes  The string sizes for the relation
-   * @param noInFlds   The number of input fields
-   * @param noOutFlds  The number of output fields
-   * @param outFlds    The projection for the output
-   * @param selects    Any selection conditions to check
-   * @param fldNum     The field number that the index is built on
-   * @param query      The 100D vector used as the query
-   * @param distance   The distance threshold
-   * @throws Exception on errors
-   */
+  private AttrType[] types;
+  private short[] str_sizes;
+  private int noInFlds;
+  private int noOutFlds;
+  private FldSpec[] outFlds;
+  private CondExpr[] selects;
+  private int fldNum;
+  private Vector100Dtype query;
+  private int distance;
+  
+  private Heapfile hf;
+  private LSHFIndex lshIndex;
+  private LSHFFileRangeScan rangeScan;
+  
+  private boolean done;
+  private Tuple op_buf;
+  
   public RSIndexScan(
       IndexType index,
-      String    relName,
-      String    indName,
+      String relName,
+      String indName,
       AttrType[] types,
-      short[]   str_sizes,
-      int       noInFlds,
-      int       noOutFlds,
+      short[] str_sizes,
+      int noInFlds,
+      int noOutFlds,
       FldSpec[] outFlds,
-      CondExpr[]selects,
-      int       fldNum,
+      CondExpr[] selects,
+      int fldNum,
       Vector100Dtype query,
-      int       distance
-  ) throws Exception
-  {
-    _types     = types;
-    _str_sizes = str_sizes;
-    _noInFlds  = noInFlds;
-    _noOutFlds = noOutFlds;
-    _outFlds   = outFlds;
-    _selects   = selects;
-    _fldNum    = fldNum;
-    _query     = query;
-    _distance  = distance;
-    _done      = false;
-
-    // Open the heapfile for the relation
-    _hf = new Heapfile(relName);
-
-    // Confirm the index type is your LSHFIndex
-    if (index.indexType != IndexType.LSHFIndex) {
-      throw new UnsupportedOperationException("RSIndexScan only supports LSHFIndex for now.");
-    }
-
-    // Open or create the LSHFIndex for the given filename
-    _lshIndex = new LSHFIndex(indName, /* h= */ 0, /* L= */0); 
-    // ^ Typically you'd keep track of h, L, or store them in the index header.
-    //   This constructor signature might differ from your code.
-
-    // Then open a range-based scan on that index
-    // The LSHFFileRangeScan returns RIDs of entries within 'distance' of _query.
-    _rangeScan = _lshIndex.rangeSearch(
-        new LSHFIndex.Vector100DKey(_query),
-        _distance
-    );
+      int distance
+  ) throws Exception {
+    this.types = types;
+    this.str_sizes = str_sizes;
+    this.noInFlds = noInFlds;
+    this.noOutFlds = noOutFlds;
+    this.outFlds = outFlds;
+    this.selects = selects;
+    this.fldNum = fldNum;
+    this.query = query;
+    this.distance = distance;
+    this.done = false;
+    
+    hf = new Heapfile(relName);
+    
+    if(index.indexType != IndexType.LSHFIndex)
+      throw new UnsupportedOperationException("RSIndexScan only supports LSHFIndex.");
+    
+    // Open the LSHF index
+    lshIndex = new LSHFIndex(indName, 3, 4); // Example: h=3, L=4; adjust as needed.
+    
+    // Open a range scan on the LSHF index.
+    rangeScan = lshIndex.rangeSearch(new Vector100DKey(query), distance);
+    
+    op_buf = new Tuple();
+    // Set header for op_buf as needed
+    op_buf.setHdr((short)noOutFlds, types, str_sizes);
   }
-
-  /**
-   * Returns the next matching tuple, or null if done.
-   */
+  
   @Override
   public Tuple get_next() throws Exception {
-    if (_done) return null;
-
-    // The rangeScan returns (KeyClass, RID) pairs.
+    if(done) return null;
+    
     RID rid = new RID();
-    KeyClass k = _rangeScan.get_next(rid);
-    if (k == null) {
-      // means no more entries
-      _done = true;
+    KeyClass key = rangeScan.get_next(rid);
+    if(key == null) {
+      done = true;
       return null;
     }
-
-    // We have the rid => retrieve the corresponding tuple from the heapfile
-    Tuple tmp = _hf.getRecord(rid);
-    // Now we can apply any select conditions in _selects
-    if (PredEval.Eval(_selects, tmp, null, _types, null)) {
-      // We also might do projection
-      // Return the projected fields
-      Tuple res = new Tuple();
-      res.setHdr((short)_noOutFlds, _types, _str_sizes); // might need adjusting
-      Projection.Project(tmp, _types, res, _outFlds, _noOutFlds);
-      return res;
+    
+    Tuple t = hf.getRecord(rid);
+    // Evaluate condition (if any)
+    if(PredEval.Eval(selects, t, null, types, null)) {
+      Tuple proj = new Tuple();
+      proj.setHdr((short)noOutFlds, types, str_sizes);
+      Projection.Project(t, types, proj, outFlds, noOutFlds);
+      return proj;
     } else {
-      // If it doesn't pass the selection, skip it => get_next() again
-      return get_next();  
+      return get_next();
     }
   }
-
+  
   @Override
-  public void close() throws Exception {
-    if (!_done) {
-      if (_rangeScan != null) {
-        _rangeScan.close();
-      }
-      _done = true;
+  public void close() {
+    if(!done) {
+      try {
+        rangeScan.close();
+      } catch(Exception e) { /* handle exception */ }
+      done = true;
     }
   }
 }

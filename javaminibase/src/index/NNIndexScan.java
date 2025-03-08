@@ -1,103 +1,100 @@
 package index;
 
 import global.*;
-import heap.*;
+import heap.Heapfile;
 import iterator.*;
 import LSHFIndex.LSHFIndex;
 import LSHFIndex.LSHFFileNNScan;
-import btree.KeyClass;
+import LSHFIndex.Vector100DKey;
 
 /**
- * NNIndexScan (Nearest-Neighbor Index Scan)
- * Returns up to 'count' nearest neighbors to 'query'.
+ * NNIndexScan implements a new nearest-neighbor index scan.
  */
 public class NNIndexScan extends Iterator {
-
-  private AttrType[] _types;
-  private short[] _str_sizes;
-  private int _noInFlds;
-  private int _noOutFlds;
-  private FldSpec[] _outFlds;
-  private CondExpr[] _selects;
-  private int _fldNum;
-  private Vector100Dtype _query;
-  private int _count;
-
-  private Heapfile _hf;
-  private LSHFIndex _lshIndex;
-  private LSHFFileNNScan _nnScan;
-  private boolean _done;
-
+  
+  private AttrType[] types;
+  private short[] str_sizes;
+  private int noInFlds;
+  private int noOutFlds;
+  private FldSpec[] outFlds;
+  private CondExpr[] selects;
+  private int fldNum;
+  private Vector100Dtype query;
+  private int count;  // number of nearest neighbors to return
+  
+  private Heapfile hf;
+  private LSHFIndex lshIndex;
+  private LSHFFileNNScan nnScan;
+  
+  private boolean done;
+  private Tuple op_buf;
+  
   public NNIndexScan(
       IndexType index,
-      String    relName,
-      String    indName,
+      String relName,
+      String indName,
       AttrType[] types,
-      short[]   str_sizes,
-      int       noInFlds,
-      int       noOutFlds,
+      short[] str_sizes,
+      int noInFlds,
+      int noOutFlds,
       FldSpec[] outFlds,
-      CondExpr[]selects,
-      int       fldNum,
+      CondExpr[] selects,
+      int fldNum,
       Vector100Dtype query,
-      int       count
-  ) throws Exception
-  {
-    _types     = types;
-    _str_sizes = str_sizes;
-    _noInFlds  = noInFlds;
-    _noOutFlds = noOutFlds;
-    _outFlds   = outFlds;
-    _selects   = selects;
-    _fldNum    = fldNum;
-    _query     = query;
-    _count     = count;
-    _done      = false;
-
-    _hf = new Heapfile(relName);
-
-    if (index.indexType != IndexType.LSHFIndex) {
-      throw new UnsupportedOperationException("NNIndexScan only supports LSHFIndex for now.");
-    }
-
-    _lshIndex = new LSHFIndex(indName, /* h= */ 0, /* L= */0);
-
-    // Open an LSHFFileNNScan that yields up to 'count' nearest neighbors
-    _nnScan = _lshIndex.nnSearch(
-        new LSHFIndex.Vector100DKey(_query),
-        _count
-    );
+      int count
+  ) throws Exception {
+    this.types = types;
+    this.str_sizes = str_sizes;
+    this.noInFlds = noInFlds;
+    this.noOutFlds = noOutFlds;
+    this.outFlds = outFlds;
+    this.selects = selects;
+    this.fldNum = fldNum;
+    this.query = query;
+    this.count = count;
+    this.done = false;
+    
+    hf = new Heapfile(relName);
+    
+    if(index.indexType != IndexType.LSHFIndex)
+      throw new UnsupportedOperationException("NNIndexScan only supports LSHFIndex.");
+    
+    lshIndex = new LSHFIndex(indName, 3, 4); // Example parameters
+    nnScan = lshIndex.nnSearch(new Vector100DKey(query), count);
+    
+    op_buf = new Tuple();
+    op_buf.setHdr((short)noOutFlds, types, str_sizes);
   }
-
+  
   @Override
   public Tuple get_next() throws Exception {
-    if (_done) return null;
-
+    if(done) return null;
+    
     RID rid = new RID();
-    KeyClass k = _nnScan.get_next(rid); 
-    if (k == null) {
-      _done = true;
+    KeyClass key = nnScan.get_next(rid);
+    if(key == null) {
+      done = true;
       return null;
     }
-
-    Tuple tmp = _hf.getRecord(rid);
-    if (PredEval.Eval(_selects, tmp, null, _types, null)) {
-      Tuple res = new Tuple();
-      res.setHdr((short)_noOutFlds, _types, _str_sizes);
-      Projection.Project(tmp, _types, res, _outFlds, _noOutFlds);
-      return res;
+    
+    Tuple t = hf.getRecord(rid);
+    if(PredEval.Eval(selects, t, null, types, null)) {
+      Tuple proj = new Tuple();
+      proj.setHdr((short)noOutFlds, types, str_sizes);
+      Projection.Project(t, types, proj, outFlds, noOutFlds);
+      return proj;
     } else {
       return get_next();
     }
   }
-
+  
   @Override
-  public void close() throws Exception {
-    if (!_done) {
-      if (_nnScan != null) {
-        _nnScan.close();
-      }
-      _done = true;
+  public void close() {
+    if(!done) {
+      try {
+        nnScan.close();
+      } catch(Exception e) { /* handle exception */ }
+      done = true;
     }
   }
 }
