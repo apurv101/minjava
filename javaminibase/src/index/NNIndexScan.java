@@ -4,23 +4,17 @@ import global.AttrType;
 import global.IndexType;
 import global.Vector100Dtype;
 import global.Vector100DKey;
-import heap.Tuple;
-import heap.RID;
+import global.RID;
 import index.IndexException;
-import lshfindex.LSHFIndex;
-import lshfindex.LSHFEntry;
+import LSHFIndex.LSHFIndex;
+import LSHFIndex.LSHFEntry;
 import iterator.FldSpec;
 import iterator.CondExpr;
 import iterator.Iterator;
 import java.io.IOException;
 import java.util.List;
 
-/**
- * NNIndexScan performs a nearest neighbor search on an LSH-forest index.
- * It returns the top 'count' tuples nearest to the given query vector.
- */
 public class NNIndexScan extends Iterator {
-    // parameters
     private IndexType indexType;
     private String relName;
     private String indName;
@@ -33,10 +27,8 @@ public class NNIndexScan extends Iterator {
     private int fldNum;
     private Vector100Dtype query;
     private int count;  // number of nearest neighbors to return
-
-    // Our new LSHF index instance
+    
     private LSHFIndex lshfIndex;
-    // List of results obtained by a nearest neighbor search
     private List<LSHFEntry> resultList;
     private int current;
     
@@ -53,7 +45,7 @@ public class NNIndexScan extends Iterator {
                        Vector100Dtype query,
                        int count)
             throws IOException, IndexException {
-        this.indexType = index; // should be IndexType.LSHFIndex
+        this.indexType = index;  // should be IndexType.LSHFIndex
         this.relName = relName;
         this.indName = indName;
         this.types = types;
@@ -67,22 +59,20 @@ public class NNIndexScan extends Iterator {
         this.count = count;
         this.current = 0;
         
-        // Open the LSHF index.
         lshfIndex = new LSHFIndex(5, 10);
         
         // Assume the index is already populated.
-        // Perform a nearest neighbor search using the query vector:
         resultList = lshfIndex.nnSearch(new Vector100DKey(query), count);
     }
     
     public Tuple get_next() throws IOException, IndexException {
-        if (current >= resultList.size()) 
+        if (current >= resultList.size())
             return null;
         LSHFEntry entry = resultList.get(current++);
         Tuple t = new Tuple();
-        // For demonstration, we return a tuple with two fields:
+        // For demonstration, return a tuple with two fields:
         // 1) the vector key (attrVector100D)
-        // 2) an integer (e.g., the RID's page number)
+        // 2) an integer (e.g., RID's page number)
         AttrType[] retTypes = new AttrType[2];
         retTypes[0] = new AttrType(AttrType.attrVector100D);
         retTypes[1] = new AttrType(AttrType.attrInteger);
@@ -99,6 +89,6 @@ public class NNIndexScan extends Iterator {
     }
     
     public void close() throws IOException, IndexException {
-        // Nothing to close for our in-memory simulation.
+        // Nothing to close in this in-memory simulation.
     }
 }

@@ -4,23 +4,17 @@ import global.AttrType;
 import global.IndexType;
 import global.Vector100Dtype;
 import global.Vector100DKey;
-import heap.Tuple;
-import heap.RID;
+import global.RID;
 import index.IndexException;
-import lshfindex.LSHFIndex;
-import lshfindex.LSHFEntry;
+import LSHFIndex.LSHFIndex;
+import LSHFIndex.LSHFEntry;
 import iterator.FldSpec;
 import iterator.CondExpr;
 import iterator.Iterator;
 import java.io.IOException;
 import java.util.List;
 
-/**
- * RSIndexScan performs a range search on an LSH-forest index.
- * It returns only those tuples whose vector key is within a given distance of the query vector.
- */
 public class RSIndexScan extends Iterator {
-    // parameters
     private IndexType indexType;
     private String relName;
     private String indName;
@@ -33,13 +27,11 @@ public class RSIndexScan extends Iterator {
     private int fldNum;
     private Vector100Dtype query;
     private int distance;  // threshold distance
-
-    // Our new LSHF index instance
+    
     private LSHFIndex lshfIndex;
-    // List of results obtained by a range search
     private List<LSHFEntry> resultList;
     private int current;
-
+    
     public RSIndexScan(IndexType index,
                        String relName,
                        String indName,
@@ -53,7 +45,7 @@ public class RSIndexScan extends Iterator {
                        Vector100Dtype query,
                        int distance)
             throws IOException, IndexException {
-        this.indexType = index; // should be IndexType.LSHFIndex
+        this.indexType = index;  // should be IndexType.LSHFIndex
         this.relName = relName;
         this.indName = indName;
         this.types = types;
@@ -67,24 +59,22 @@ public class RSIndexScan extends Iterator {
         this.distance = distance;
         this.current = 0;
         
-        // Open the LSHF index.
-        // (In a real implementation, you would open an on-disk index using relName/indName.)
-        // Here we simply create a new LSHFIndex (using arbitrary h and L parameters).
+        // Create (or open) an LSHFIndex instance.
+        // In a full implementation, this index would be persistent.
         lshfIndex = new LSHFIndex(5, 10);
         
         // Assume the index is already populated.
-        // Now perform a range search on the LSHF index:
         resultList = lshfIndex.rangeSearch(new Vector100DKey(query), distance);
     }
     
     public Tuple get_next() throws IOException, IndexException {
-        if (current >= resultList.size()) 
+        if (current >= resultList.size())
             return null;
         LSHFEntry entry = resultList.get(current++);
         Tuple t = new Tuple();
-        // For demonstration, we return a tuple with two fields:
-        // 1) the vector key (attrVector100D) 
-        // 2) an integer representation of the RID (here we use the page number)
+        // For demonstration, output a tuple with two fields:
+        // 1) attrVector100D (the key)
+        // 2) an integer representing RID's page number.
         AttrType[] retTypes = new AttrType[2];
         retTypes[0] = new AttrType(AttrType.attrVector100D);
         retTypes[1] = new AttrType(AttrType.attrInteger);
@@ -101,6 +91,6 @@ public class RSIndexScan extends Iterator {
     }
     
     public void close() throws IOException, IndexException {
-        // In this simple in-memory implementation, nothing to close.
+        // No resources to close in this in-memory simulation.
     }
 }
