@@ -1,4 +1,4 @@
-package tests3;
+package tests;
 
 import LSHFIndex.LSHFIndex;
 import LSHFIndex.LSHFEntry;
