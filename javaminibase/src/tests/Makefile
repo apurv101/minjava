@@ -70,6 +70,13 @@ SMJoin:SM_JoinTest.java
 sortmerge: SMJoin
 	$(JAVA) tests.SM_JoinTest
 
+# test buffer manager
+LSHFIndexTest:LSHFIndexTest.java
+	$(JAVAC) TestDriver.java LSHFIndexTest.java
+
+lshfindextest: LSHFIndexTest
+	$(JAVA) tests.LSHFIndexTest
+
 
 
 
