@@ -686,8 +686,8 @@ public Sort(
     this(in, len_in, str_sizes, am, sort_fld, sort_order, sort_fld_len, n_pages);
 
     // Then store the new parameters in private fields you define:
-    this._targetVector = targetVector;
-    this._k            = k;
+    _targetVector = targetVector;
+    _k            = k;
 
     // If we’re sorting on a vector field, we’ll do some extra logic
     // (We’ll define _vectorSort, _distanceSort, etc.)
