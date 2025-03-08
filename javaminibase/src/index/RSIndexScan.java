@@ -63,7 +63,7 @@ public class RSIndexScan extends Iterator {
     if (index.indexType != IndexType.LSHFIndex)
       throw new UnsupportedOperationException("RSIndexScan only supports LSHFIndex.");
     
-    // Create the LSHFIndex with example parameters (adjust h and L as needed)
+    // Open the LSHFIndex (using example parameters h=3, L=4; adjust as needed)
     lshIndex = new LSHFIndex(indName, 3, 4);
     
     // Open a range scan on the LSHF index.
@@ -99,7 +99,7 @@ public class RSIndexScan extends Iterator {
       try {
         rangeScan.close();
       } catch(Exception e) {
-        // Optionally log the error
+        // Optionally log the error.
       }
       done = true;
     }

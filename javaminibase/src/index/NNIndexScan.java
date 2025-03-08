@@ -96,7 +96,7 @@ public class NNIndexScan extends Iterator {
       try {
         nnScan.close();
       } catch(Exception e) {
-        // Optionally log the error
+        // Optionally log the error.
       }
       done = true;
     }
