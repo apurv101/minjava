@@ -2,7 +2,7 @@ package LSHFIndex;
 
 import java.io.IOException;
 import btree.KeyClass;
-import global.IndexFile;
+import index.IndexFile;
 import global.RID;
 import heap.*;
 // plus whatever else you need

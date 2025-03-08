@@ -3,7 +3,7 @@ package LSHFIndex;
 import java.io.IOException;
 import btree.KeyClass;
 import global.RID;
-import index.IndexFileScan;
+import btree.IndexFileScan;
 
 /**
  * A simple scan that might just iterate over all index entries in the LSH-Forest
