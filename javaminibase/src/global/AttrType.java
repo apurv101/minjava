@@ -46,6 +46,8 @@ public class AttrType {
       return "attrReal";
     case attrSymbol:
       return "attrSymbol";
+    case attrVector100D:
+      return "attrVector100D";
     case attrNull:
       return "attrNull";
     }
