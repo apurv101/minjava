@@ -32,6 +32,7 @@ public class AttrType {
    */
 
   public AttrType (int _attrType) {
+    System.out.println("Creating AttrType with value: " + _attrType);
     attrType = _attrType;
   }
 
