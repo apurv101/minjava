@@ -454,6 +454,11 @@ public void setHdr (short numFlds,  AttrType types[], short strSizes[])
      incr =(short) ( strSizes[strCount] +2);  //strlen in bytes = strlen +2
      break;
 
+    case AttrType.attrVector100D:
+    // We store 100 * 2 bytes = 200 bytes for the vector
+      incr = 200;
+      break;     
+
    default:
     throw new InvalidTypeException (null, "TUPLE: TUPLE_TYPE_ERROR");
    }
