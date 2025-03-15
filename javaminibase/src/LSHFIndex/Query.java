@@ -2,6 +2,7 @@ package LSHFIndex;
 
 import global.*;
 import heap.*;
+import diskmgr.*;
 import index.IndexException;
 import index.NNIndexScan;
 import index.RSIndexScan;
