@@ -1,187 +1,232 @@
-package tests;
-
 import global.*;
 import heap.*;
-import iterator.*;
+import index.IndexException;
+import LSHFIndex.LSHFIndex;
+import LSHFIndex.LSHFEntry;
+import btree.KeyClass;      // used for KeyClass pointer
 import java.io.*;
 import java.util.*;
 
+// Example command line:
+//   java BatchInsert 4 2 datafile.txt MyDB
+//
+// Where:
+//   h = 4
+//   L = 2
+//   datafile.txt = path to data file
+//   MyDB = name of the DB
+//
+// Data file format:
+//   1) line1: n (number of attributes)
+//   2) line2: n attribute type codes (1=int, 2=real, 3=string, 4=100D-vector)
+//   3) next n lines: values for first tuple
+//   4) next n lines: values for second tuple
+//   etc.
+//   - For a 100D-vector line (attr type=4), it contains 100 integers separated by whitespace.
 public class BatchInsert {
+
     public static void main(String[] args) {
-        if (args.length < 4) {
+        if (args.length != 4) {
             System.err.println("Usage: batchinsert h L DATAFILENAME DBNAME");
             System.exit(1);
         }
 
-        // Parse command-line arguments
-        int h = Integer.parseInt(args[0]);
-        int L = Integer.parseInt(args[1]);
-        String dataFileName = args[2];
-        String dbName = args[3];
+        // Parse the command-line arguments
+        int h = Integer.parseInt(args[0]);          // number of hash functions per layer
+        int L = Integer.parseInt(args[1]);          // number of layers
+        String dataFileName = args[2];              // data filename
+        String dbName = args[3];                    // DB name
 
-        // (Optional) Use h and L for custom indexing or other logic as needed:
-        System.out.println("Received h=" + h + ", L=" + L);
+        // 1) Initialize disk/page counters so we can report reads/writes after insertion.
+        PCounter.initialize();
 
-        BufferedReader reader = null;
+        BufferedReader br = null;
         try {
-            // 1) Open the data file
-            reader = new BufferedReader(new FileReader(dataFileName));
+            // 2) Read from the data file
+            br = new BufferedReader(new FileReader(dataFileName));
 
-            // 2) Read the number of attributes (n)
-            int n = Integer.parseInt(reader.readLine().trim());
-            System.out.println("Number of attributes = " + n);
+            // First line: number of attributes
+            int n = Integer.parseInt(br.readLine().trim());
 
-            // 3) Read the next line containing n type codes.
-            //    1 = int, 2 = real, 3 = string, 4 = 100D-vector
-            String[] typeTokens = reader.readLine().trim().split("\\s+");
+            // Second line: n attribute-type codes
+            String[] typeTokens = br.readLine().trim().split("\\s+");
             if (typeTokens.length != n) {
                 throw new IllegalArgumentException(
-                    "Expected " + n + " attribute type codes, found " + typeTokens.length
+                    "Mismatch between declared attribute count and type codes provided."
                 );
             }
-
-            // Build the AttrType array for the schema
-            AttrType[] attrTypes = new AttrType[n];
-            int strFieldCount = 0; // track how many string fields we have (for str_sizes)
+            int[] attrTypeCodes = new int[n];
             for (int i = 0; i < n; i++) {
-                int code = Integer.parseInt(typeTokens[i]);
-                switch (code) {
-                    case 1:
-                        attrTypes[i] = new AttrType(AttrType.attrInteger);
-                        break;
-                    case 2:
-                        attrTypes[i] = new AttrType(AttrType.attrReal);
-                        break;
-                    case 3:
-                        attrTypes[i] = new AttrType(AttrType.attrString);
-                        strFieldCount++;
-                        break;
-                    case 4:
-                        attrTypes[i] = new AttrType(AttrType.attrVector100D);
-                        break;
-                    default:
-                        throw new IllegalArgumentException(
-                            "Unknown attribute type code: " + code
-                        );
+                attrTypeCodes[i] = Integer.parseInt(typeTokens[i]);
+            }
+
+            // 3) Create one LSHFIndex per 100D-vector attribute (type code=4),
+            //    storing them in a Map keyed by attribute index (0-based).
+            Map<Integer, LSHFIndex> vectorIndexes = new HashMap<>();
+            for (int i = 0; i < n; i++) {
+                if (attrTypeCodes[i] == AttrType.attrVector100D) {
+                    // Create the LSH-forest index for that attribute
+                    LSHFIndex index = new LSHFIndex(h, L);
+                    vectorIndexes.put(i, index);
                 }
             }
 
-            // For each string field, we’ll assume some fixed maximum length.
-            // You can adjust these lengths to suit your data.
-            short[] strSizes = new short[strFieldCount];
-            Arrays.fill(strSizes, (short)30);
-
-            // 4) Initialize MiniBase with the DB name.
-            //    (Adjust the page size, buffer pool size, etc. as you wish.)
-            //    For demonstration, we use 4096 bytes, 50 pages, LRU replacement.
+            // 4) Initialize MiniBase for the given DB name.
+            //    Use page size = 4096 (or whatever is in GlobalConst) and 50 pages for demonstration.
+            //    (Adjust these as needed for your environment.)
             SystemDefs sysdef = new SystemDefs(dbName, 4096, 50, "LRU");
 
-            // 5) Create a heap file. You can name it arbitrarily or derive from arguments.
+            // Create a heap file to store the actual data table
             Heapfile heapfile = new Heapfile("batch_insert_output.in");
 
-            // 6) We will read tuples until EOF, each tuple has n fields, 
-            //    reading line by line for each attribute’s value.
-            //    (For attribute 4 => 100D-vector => read 100 integers in one line or multiple lines)
-            //    The problem statement says: “The next n lines will contain values of the first tuple; 
-            //    the next n lines for the second tuple; etc.”
-
-            // Prepare a reusable Tuple instance
-            Tuple t = new Tuple();
-            t.setHdr((short)n, attrTypes, strSizes);
-
-            // Keep track of the size once, so we can always re_init fields
-            int size = t.size();
-            t = new Tuple(size);
-            t.setHdr((short)n, attrTypes, strSizes);
-
+            // 5) Insert each tuple
             int tupleCount = 0;
-
             while (true) {
-                // Attempt to read n lines for the next tuple
-                // If we cannot read all n lines, we must be at the end
+                // We read n lines, each line is the value for an attribute.
+                // If we cannot read the first attribute line => break (EOF)
                 String[] fieldValues = new String[n];
                 for (int i = 0; i < n; i++) {
-                    String line = reader.readLine();
+                    String line = br.readLine();
                     if (line == null) {
-                        // No more data left
+                        // End of file or partial read => break
                         if (i > 0) {
-                            System.err.println("Warning: partial tuple found but ignoring it.");
+                            System.err.println("Warning: partial tuple found, ignoring it.");
                         }
-                        break; 
+                        break;
                     }
                     fieldValues[i] = line.trim();
                 }
-                // If the first line of the new tuple read was null, we’re done
                 if (fieldValues[0] == null) {
+                    // No more full tuples
                     break;
                 }
 
-                // Now fill in the fields:
-                // Map each field to the appropriate set method.
-                int attrIndex = 0;
-                int stringIndex = 0; // track strings
-                for (int i = 0; i < n; i++) {
-                    int code = Integer.parseInt(typeTokens[i]);
-                    switch (code) {
-                        case 1: // int
-                        {
-                            int val = Integer.parseInt(fieldValues[i]);
-                            t.setIntFld(i+1, val);
-                            break;
-                        }
-                        case 2: // real (float)
-                        {
-                            float val = Float.parseFloat(fieldValues[i]);
-                            t.setFloFld(i+1, val);
-                            break;
-                        }
-                        case 3: // string
-                        {
-                            // If the line is the entire string, store it
-                            // If you have strings with spaces, you'd need a different approach
-                            String s = fieldValues[i];
-                            t.setStrFld(i+1, s);
-                            break;
-                        }
-                        case 4: // 100D vector
-                        {
-                            // The line contains 100 space-separated integers (based on the spec)
-                            // If your data is spread over multiple lines, adjust the code accordingly.
-                            // For simplicity, we assume it's a single line with 100 ints separated by spaces.
-                            String[] vectorTokens = fieldValues[i].split("\\s+");
-                            if (vectorTokens.length != 100) {
-                                throw new IllegalArgumentException(
-                                    "Expected 100 integers for vector, found " + vectorTokens.length
-                                );
-                            }
-                            short[] vecData = new short[100];
-                            for (int k = 0; k < 100; k++) {
-                                vecData[k] = Short.parseShort(vectorTokens[k]);
-                            }
-                            Vector100Dtype vector = new Vector100Dtype(vecData);
-                            t.set100DVectFld(i+1, vector);
-                            break;
-                        }
-                        default:
-                            // Should never happen if we validated up front
-                            throw new IllegalArgumentException("Unknown attribute code: " + code);
-                    }
-                }
+                // Build a Tuple in memory (we won't do the full setHdr logic here, just store raw).
+                // For your system, you'd typically do something like:
+                //   Tuple t = new Tuple();
+                //   t.setHdr(...) ...
+                //   if (attrType is int) t.setIntFld(...)
+                //   etc.
+                //   Insert into heapfile with heapfile.insertRecord(t.getTupleByteArray());
+                // Below is a minimal demonstration.
 
-                // 7) Insert the tuple into the heap file
+                Tuple t = createTuple(fieldValues, attrTypeCodes); // See helper below
                 byte[] record = t.getTupleByteArray();
                 RID rid = heapfile.insertRecord(record);
                 tupleCount++;
+
+                // 6) For each vector attribute, insert into the LSHFIndex
+                for (int i = 0; i < n; i++) {
+                    if (attrTypeCodes[i] == AttrType.attrVector100D) {
+                        // Convert fieldValues[i] into a Vector100Dtype
+                        short[] vectorData = parseVector100D(fieldValues[i]);
+                        Vector100Dtype vect = new Vector100Dtype(vectorData);
+
+                        // Build a key object
+                        Vector100DKey key = new Vector100DKey(vect);
+
+                        // Insert into the index
+                        vectorIndexes.get(i).insert(key, rid);
+                    }
+                }
             }
 
-            System.out.println("Successfully inserted " + tupleCount + " tuples.");
+            System.out.println("Inserted " + tupleCount + " tuples into heapfile.");
+
+            // 7) Write out each LSH index to a file named: DBNAME_attrIndex_h_L
+            //    e.g. MyDB_2_4_2 means attribute=2, h=4, L=2
+            //    (Adjust as you see fit for your environment.)
+            for (Map.Entry<Integer, LSHFIndex> entry : vectorIndexes.entrySet()) {
+                int attrNo = entry.getKey();  // 0-based
+                LSHFIndex index = entry.getValue();
+                String indexFileName = dbName + "_" + attrNo + "_" + h + "_" + L;
+                index.writeIndexToFile(indexFileName);
+                System.out.println("LSH-forest index for attr #" + attrNo
+                    + " written to " + indexFileName);
+            }
+
+            // 8) Print out disk read/write counters from PCounter
+            System.out.println("\nDisk pages read   : " + PCounter.rcounter);
+            System.out.println("Disk pages written: " + PCounter.wcounter);
 
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            if (reader != null) {
-                try { reader.close(); } catch (IOException e) { /* ignore */ }
+            if (br != null) {
+                try { br.close(); } catch (IOException e) { /* ignore */ }
             }
         }
+    }
+
+    /**
+     * Helper that creates a basic Tuple object from the string values (one per attribute).
+     * You’d usually do the setHdr(...) and setXxxFld(...) for each attribute properly.
+     * Here we keep it minimal to show the concept.
+     */
+    private static Tuple createTuple(String[] fieldValues, int[] attrTypeCodes) throws Exception {
+        // For demonstration only: we’ll do a quick pass that sets a header
+        // (with the correct # of fields, ignoring string size array),
+        // and then sets data for each field in a simplistic manner.
+
+        int n = fieldValues.length;
+        AttrType[] types = new AttrType[n];
+        // Count how many string fields to build strSizes
+        int strCount = 0;
+        for (int i = 0; i < n; i++) {
+            types[i] = new AttrType(attrTypeCodes[i]);
+            if (attrTypeCodes[i] == AttrType.attrString) {
+                strCount++;
+            }
+        }
+        short[] strSizes = new short[strCount];
+        for (int i = 0; i < strCount; i++) {
+            strSizes[i] = 30; // default size
+        }
+
+        Tuple t = new Tuple();
+        t.setHdr((short)n, types, strSizes);
+
+        // Now fill the fields
+        int stringIndex = 0; // next string size in array
+        for (int i = 0; i < n; i++) {
+            switch(attrTypeCodes[i]) {
+                case AttrType.attrInteger:
+                    t.setIntFld(i+1, Integer.parseInt(fieldValues[i]));
+                    break;
+                case AttrType.attrReal:
+                    t.setFloFld(i+1, Float.parseFloat(fieldValues[i]));
+                    break;
+                case AttrType.attrString:
+                    t.setStrFld(i+1, fieldValues[i]);
+                    break;
+                case AttrType.attrVector100D:
+                    // parseVector100D is called *before* in the main code,
+                    // but let's be consistent:
+                    short[] vectorData = parseVector100D(fieldValues[i]);
+                    Vector100Dtype vect = new Vector100Dtype(vectorData);
+                    t.set100DVectFld(i+1, vect);
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unknown attribute code: " + attrTypeCodes[i]);
+            }
+        }
+        return t;
+    }
+
+    /**
+     * Parses a single line containing 100 integers into a short[100] array.
+     */
+    private static short[] parseVector100D(String line) {
+        String[] tokens = line.split("\\s+");
+        if (tokens.length != 100) {
+            throw new IllegalArgumentException(
+                "Expected 100 integers for a 100D-vector, found " + tokens.length
+            );
+        }
+        short[] arr = new short[100];
+        for (int i = 0; i < 100; i++) {
+            arr[i] = Short.parseShort(tokens[i]);
+        }
+        return arr;
     }
 }
