@@ -7,10 +7,11 @@ package global;
 
 public class AttrType {
 
-  public static final int attrString  = 0;
   public static final int attrInteger = 1;
   public static final int attrReal    = 2;
-  public static final int attrSymbol  = 3;
+  public static final int attrSymbol  = 0;
+  public static final int attrString  = 3;
+
   public static final int attrVector100D = 4;
   public static final int attrNull    = 5;
   
