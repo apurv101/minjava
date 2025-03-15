@@ -11,8 +11,8 @@ public class AttrType {
   public static final int attrInteger = 1;
   public static final int attrReal    = 2;
   public static final int attrSymbol  = 3;
-  public static final int attrNull    = 4;
-  public static final int attrVector100D = 5;
+  public static final int attrVector100D = 4;
+  public static final int attrNull    = 5;
   
   public int attrType;
 
