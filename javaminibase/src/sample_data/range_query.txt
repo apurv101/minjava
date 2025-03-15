@@ -1,1 +1,1 @@
-Range(2, targetA.txt, 10, 1 3)
+Range(2, sample_data/targetA.txt, 10, 1 3)
