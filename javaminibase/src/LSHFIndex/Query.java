@@ -46,7 +46,7 @@ public class Query {
         // Open the existing DB (not overwriting).
         SystemDefs sysdef = null;
         try {
-            // Example: passing zero pages might open existing DB. Adjust for your case:
+            // Example: pass zero pages to open existing DB; or set 4096 for page size, etc.
             sysdef = new SystemDefs(dbName, 4096, numBuf, "Clock");
         } catch (Exception e) {
             System.err.println("Could not open existing DB: " + e.getMessage());
@@ -80,7 +80,7 @@ public class Query {
     private static void runQuery(QuerySpec spec, String dbName, boolean useIndex, int numBuf)
         throws Exception
     {
-        // The underlying table (Heapfile) is presumably the same used in batch insertion.
+        // The underlying table (Heapfile) presumably from batch insertion.
         String heapFileName = "batch_insert_output.in";
         Heapfile heap = new Heapfile(heapFileName);
 
@@ -89,11 +89,10 @@ public class Query {
 
         if (spec.isRangeQuery) {
             int distance = spec.rangeOrK;
-            System.out.println("Running RANGE query on attribute #"+queryAttrIndex
-                               +" with distance <= " + distance);
+            System.out.println("Running RANGE query on attribute #" + queryAttrIndex
+                               + " with distance <= " + distance);
 
             if (useIndex) {
-                // Build an RSIndexScan with a guessed h=4, L=3, etc. Adjust as needed.
                 int h = 4;
                 int L = 3;
                 String indexFileName = dbName + "_" + queryAttrIndex + "_" + h + "_" + L;
@@ -114,7 +113,7 @@ public class Query {
                     1,   // noOutFlds
                     proj,
                     null,
-                    1,   // the field we are querying
+                    1,   // which field to query
                     spec.targetVector,
                     distance
                 );
@@ -123,14 +122,14 @@ public class Query {
                 scan.close();
             }
             else {
-                // No index => full scan, check distances
+                // No index => full scan
                 fullScanRange(heap, queryAttrIndex, spec.targetVector, distance, spec.outputFields);
             }
         }
         else {
             // NN query
             int k = spec.rangeOrK;
-            System.out.println("Running NN query on attribute #"+queryAttrIndex +" with k="+k);
+            System.out.println("Running NN query on attribute #" + queryAttrIndex + " with k=" + k);
 
             if (useIndex) {
                 int h = 4;
@@ -153,7 +152,7 @@ public class Query {
                     1,   // noOutFlds
                     proj,
                     null,
-                    1,   // field number
+                    1,   // field # for the vector
                     spec.targetVector,
                     k
                 );
@@ -162,16 +161,14 @@ public class Query {
                 scan.close();
             }
             else {
-                // Full scan, compute distances, store, sort
+                // No index => compute distances & sort
                 fullScanNN(heap, queryAttrIndex, spec.targetVector, k, spec.outputFields);
             }
         }
     }
 
     /**
-     * Helper: for Range or NN scans (with an index), the "get_next()" call
-     * returns a simplified tuple that just has (vector, pageNo).
-     * In reality, you'd re-fetch from the heap or store a full RID, etc.
+     * For Range or NN index scans, we get a minimal (vector, pageNo) tuple.
      */
     private static void dumpQueryResults(Iterator scan, Heapfile heap, List<Integer> outFields)
             throws Exception
@@ -183,15 +180,14 @@ public class Query {
             Vector100Dtype foundVect = t.get100DVectFld(1);
             int pageNoPid = t.getIntFld(2);
 
-            // This is just a demonstration approach
-            // In a real system you'd have the full RID. Then re-fetch the record, etc.
+            // Demo approach: we only have pageNo, no slotNo. A real approach would store the full RID.
             System.out.println("Found record: vector[0] = " + foundVect.getValue(0)
                                + "; pageNo=" + pageNoPid);
         }
     }
 
-    /**
-     * If no index is used, we do a full file scan and check distance from each record.
+    /** 
+     * If no index is used, do a full file scan, check distance, output matches.
      */
     private static void fullScanRange(Heapfile heap,
                                       int vectFieldNo,
@@ -200,20 +196,19 @@ public class Query {
                                       List<Integer> outFields)
         throws Exception
     {
-        System.out.println("Doing full-scan range, dist<="+distance+", on field #"+vectFieldNo);
+        System.out.println("Doing full-scan range, dist<=" + distance + ", on field #" + vectFieldNo);
         Scan scan = heap.openScan();
         RID rid = new RID();
         Tuple t;
         int count = 0;
 
         while ((t = scan.getNext(rid)) != null) {
-            // If needed, call t.setHdr(...) with your known schema
+            // If needed, setHdr(...) for your schema
             Vector100Dtype v = t.get100DVectFld(vectFieldNo);
             int dist = computeDistance(v, target);
             if (dist <= distance) {
                 count++;
-                // Print or store fields
-                System.out.println("Match (dist="+dist+"): vector[0] = " + v.getValue(0)
+                System.out.println("Match (dist=" + dist + "): vector[0] = " + v.getValue(0)
                                    + " -> RID = " + rid);
             }
         }
@@ -222,8 +217,7 @@ public class Query {
     }
 
     /**
-     * If no index is used, do a full file scan, compute distance for each record, store them,
-     * then sort by ascending distance, then output top-k (or all if k=0).
+     * If no index is used, do full scan, store distance, sort, return top-k/all.
      */
     private static void fullScanNN(Heapfile heap,
                                    int vectFieldNo,
@@ -232,22 +226,18 @@ public class Query {
                                    List<Integer> outFields)
         throws Exception
     {
-        System.out.println("Doing full-scan NN, top K="+k+", on field #"+vectFieldNo);
+        System.out.println("Doing full-scan NN, top K=" + k + ", on field #" + vectFieldNo);
         Scan scan = heap.openScan();
         RID rid = new RID();
         Tuple t;
+
         List<NNEntry> entries = new ArrayList<>();
 
         while ((t = scan.getNext(rid)) != null) {
-            // If needed, call t.setHdr(...) with your known schema
             Vector100Dtype v = t.get100DVectFld(vectFieldNo);
             int dist = computeDistance(v, target);
-
-            // We must keep a copy if we want to examine it after the scan.
-            // Use your copy constructor:
+            // Make a copy so we can read fields after the scan:
             Tuple tcopy = new Tuple(t);
-
-            // Add to a list
             entries.add(new NNEntry(dist, tcopy, rid.pageNo.pid, rid.slotNo));
         }
         scan.closescan();
@@ -255,46 +245,48 @@ public class Query {
         // Sort ascending by distance
         entries.sort(Comparator.comparingInt(e -> e.dist));
 
-        int end = (k==0 || k>entries.size()) ? entries.size() : k;
+        int end = (k == 0 || k > entries.size()) ? entries.size() : k;
         System.out.println("Full-scan NN found " + entries.size() + " total, returning " + end);
 
-        for (int i=0; i<end; i++) {
+        for (int i = 0; i < end; i++) {
             NNEntry e = entries.get(i);
             Vector100Dtype vect = e.tuple.get100DVectFld(vectFieldNo);
             System.out.println("Rank #"+(i+1)
                                + " dist=" + e.dist
                                + " vector[0]=" + vect.getValue(0)
-                               + " RID(page="+e.pageNo+", slot="+e.slotNo+")");
+                               + " RID(page="+ e.pageNo +", slot="+ e.slotNo +")");
         }
     }
 
-    /**
-     * Compute Euclidean distance between two 100D vectors (rounded down to int).
-     */
     private static int computeDistance(Vector100Dtype v1, Vector100Dtype v2) {
         float sumSq = 0;
         for (int i = 0; i < 100; i++) {
             int diff = v1.getValue(i) - v2.getValue(i);
-            sumSq += (diff * diff);
+            sumSq += diff * diff;
         }
         return (int)Math.sqrt(sumSq);
     }
 
-    /**
-     * Holds a record's distance + a copy of the tuple + the RID data.
-     */
     private static class NNEntry {
         int dist;
         Tuple tuple;
         int pageNo;
         int slotNo;
         NNEntry(int d, Tuple t, int p, int s){
-            dist = d; tuple = t; pageNo = p; slotNo = s;
+            dist = d; 
+            tuple = t; 
+            pageNo = p; 
+            slotNo = s;
         }
     }
 
+    // ---------------------- PARSING QUERY FILES ----------------------
+
     /**
-     * Reads exactly 1 line from the query file, either "Range(...)" or "NN(...)".
+     * Reads exactly one line from QSNAME, e.g.:
+     *   Range(2, target.txt, 10, 1, 2, 3)
+     * or
+     *   NN(2, target.txt, 5, 1,2)
      */
     private static QuerySpec parseQuerySpecFile(String qsName) throws IOException {
         try (BufferedReader br = new BufferedReader(new FileReader(qsName))) {
@@ -314,28 +306,32 @@ public class Query {
         }
     }
 
-    /**
-     * Parse something like: Range(2, target.txt, 10, 1 2 3)
-     */
     private static QuerySpec parseRange(String line) throws IOException {
         int idx1 = line.indexOf("(");
         int idx2 = line.lastIndexOf(")");
         if (idx1 < 0 || idx2 < 0) {
             throw new IOException("Malformed Range(...) syntax.");
         }
-        String inside = line.substring(idx1+1, idx2).trim();
+        // e.g. "2, target1, 1, 1,2"
+        String inside = line.substring(idx1 + 1, idx2).trim();
 
+        // We'll split by comma for first 3 items: [queryAttr, vectorFile, distance], then remainder
         String[] parts = inside.split(",", 4);
         if (parts.length < 3) {
-            throw new IOException("Not enough fields in Range(...)");
+            throw new IOException("Not enough arguments in Range(...)");
         }
-        int queryAttr = Integer.parseInt(parts[0].trim());
+
+        int queryAttr = Integer.parseInt(parts[0].trim()); 
         String vectorFile = parts[1].trim();
         int distance = Integer.parseInt(parts[2].trim());
 
         List<Integer> outFields = new ArrayList<>();
         if (parts.length == 4) {
-            String[] fs = parts[3].trim().split("\\s+");
+            // parts[3] might look like " 1, 2 , 3"
+            // remove all commas:
+            String lastPart = parts[3].trim().replaceAll(",", " ");
+            // now split on whitespace
+            String[] fs = lastPart.split("\\s+");
             for (String f : fs) {
                 outFields.add(Integer.valueOf(f));
             }
@@ -352,28 +348,29 @@ public class Query {
         return spec;
     }
 
-    /**
-     * Parse something like: NN(2, target.txt, 5, 1 2 3)
-     */
     private static QuerySpec parseNN(String line) throws IOException {
         int idx1 = line.indexOf("(");
         int idx2 = line.lastIndexOf(")");
         if (idx1 < 0 || idx2 < 0) {
             throw new IOException("Malformed NN(...) syntax.");
         }
-        String inside = line.substring(idx1+1, idx2).trim();
+        // e.g. "2, target1, 5, 1, 2"
+        String inside = line.substring(idx1 + 1, idx2).trim();
 
         String[] parts = inside.split(",", 4);
         if (parts.length < 3) {
-            throw new IOException("Not enough fields in NN(...)");
+            throw new IOException("Not enough arguments in NN(...)");
         }
+
         int queryAttr = Integer.parseInt(parts[0].trim());
         String vectorFile = parts[1].trim();
         int k = Integer.parseInt(parts[2].trim());
 
         List<Integer> outFields = new ArrayList<>();
         if (parts.length == 4) {
-            String[] fs = parts[3].trim().split("\\s+");
+            // remove commas from the last chunk
+            String lastPart = parts[3].trim().replaceAll(",", " ");
+            String[] fs = lastPart.split("\\s+");
             for (String f : fs) {
                 outFields.add(Integer.valueOf(f));
             }
@@ -382,7 +379,7 @@ public class Query {
         Vector100Dtype vect = readVectorFile(vectorFile);
 
         QuerySpec spec = new QuerySpec();
-        spec.isRangeQuery = false;  // means NN
+        spec.isRangeQuery = false; 
         spec.queryAttrNum = queryAttr;
         spec.targetVector = vect;
         spec.rangeOrK     = k;
@@ -391,7 +388,7 @@ public class Query {
     }
 
     /**
-     * Reads a file containing exactly 100 integers (each -10000..10000).
+     * Reads exactly 100 integers from the given file into a Vector100Dtype.
      */
     private static Vector100Dtype readVectorFile(String filename) throws IOException {
         try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
@@ -411,15 +408,12 @@ public class Query {
         }
     }
 
-    /**
-     * Simple holder for query details.
-     */
     private static class QuerySpec {
-        boolean isRangeQuery;        // Range vs. NN
-        int queryAttrNum;            // 1-based field # for the vector
-        Vector100Dtype targetVector; // the 100D target
-        int rangeOrK;                // distance or K
-        List<Integer> outputFields;  // which fields user wants returned
+        boolean isRangeQuery;
+        int queryAttrNum;
+        Vector100Dtype targetVector;
+        int rangeOrK;
+        List<Integer> outputFields;
     }
 
 }
