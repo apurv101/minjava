@@ -4,11 +4,15 @@ import global.*;
 import global.RID;
 import btree.KeyClass;
 import index.IndexException;
+
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-public class LSHFIndex {
+public class LSHFIndex implements Serializable {
     private int h;  // number of hash functions per layer
     private int L;  // number of layers
     // For simplicity, we store all entries in an in‑memory list.
@@ -74,11 +78,15 @@ public class LSHFIndex {
     }
 
     public void writeIndexToFile(String filename) throws IOException {
-        // Implement your index persistence here.
-        // For simulation purposes, you might just write a simple message or serialize your index.
-        System.out.println("Simulating writing index to file: " + filename);
-        // Optionally, write to a file using FileOutputStream, etc.
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(filename))) {
+            oos.writeObject(this); // Serialize the entire index object
+            System.out.println("LSHF Index successfully written to file: " + filename);
+        } catch (IOException e) {
+            System.err.println("Error writing LSHF Index to file: " + e.getMessage());
+            throw e;
+        }
     }
+
     
     // Helper method: compute Euclidean distance between two vectors (rounded to int).
     private int computeDistance(Vector100Dtype v1, Vector100Dtype v2) {

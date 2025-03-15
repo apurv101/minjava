@@ -1,15 +1,14 @@
+package LSHFIndex;
+
 import global.*;
 import heap.*;
 import diskmgr.*;
-import index.IndexException;
-import LSHFIndex.LSHFIndex;
-import LSHFIndex.LSHFEntry;
-import btree.KeyClass;      // used for KeyClass pointer
+
 import java.io.*;
 import java.util.*;
 
 // Example command line:
-//   java BatchInsert 4 2 datafile.txt MyDB
+//   java LSHFIndex.BatchInsert 4 2 datafile.txt MyDB
 //
 // Where:
 //   h = 4

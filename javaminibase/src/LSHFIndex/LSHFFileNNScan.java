@@ -13,7 +13,7 @@ public class LSHFFileNNScan extends Iterator {
     private List<LSHFEntry> entries;
     private int current;
     
-    public LSHFFileNNScan(LSHFIndex index, global.KeyClass key, int count) throws IOException, IndexException {
+    public LSHFFileNNScan(LSHFIndex index, btree.KeyClass key, int count) throws IOException, IndexException {
         if (!(key instanceof global.Vector100DKey))
             throw new IndexException("Key must be of type Vector100DKey");
         entries = index.nnSearch(key, count);

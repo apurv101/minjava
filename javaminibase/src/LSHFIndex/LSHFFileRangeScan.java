@@ -13,7 +13,7 @@ public class LSHFFileRangeScan extends Iterator {
     private List<LSHFEntry> entries;
     private int current;
     
-    public LSHFFileRangeScan(LSHFIndex index, global.KeyClass key, int distance) throws IOException, IndexException {
+    public LSHFFileRangeScan(LSHFIndex index, btree.KeyClass key, int distance) throws IOException, IndexException {
         if (!(key instanceof global.Vector100DKey))
             throw new IndexException("Key must be of type Vector100DKey");
         entries = index.rangeSearch(key, distance);

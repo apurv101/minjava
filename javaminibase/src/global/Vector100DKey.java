@@ -2,7 +2,9 @@ package global;
 
 import btree.KeyClass;
 
-public class Vector100DKey extends KeyClass {
+import java.io.Serializable;
+
+public class Vector100DKey extends KeyClass implements Serializable {
     public Vector100Dtype key;
     
     public Vector100DKey(Vector100Dtype key) {

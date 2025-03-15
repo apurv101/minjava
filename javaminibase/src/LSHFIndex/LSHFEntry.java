@@ -3,7 +3,9 @@ package LSHFIndex;
 import global.Vector100DKey;
 import global.RID;
 
-public class LSHFEntry {
+import java.io.Serializable;
+
+public class LSHFEntry implements Serializable {
     public Vector100DKey key;
     public RID rid;
     
