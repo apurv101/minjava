@@ -1,5 +1,6 @@
 import global.*;
 import heap.*;
+import diskmgr.*;
 import index.IndexException;
 import LSHFIndex.LSHFIndex;
 import LSHFIndex.LSHFEntry;
