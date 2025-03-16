@@ -3,22 +3,18 @@ package LSHFIndex;
 import global.*;
 import heap.*;
 import diskmgr.*;
-import index.IndexException;
 import index.NNIndexScan;
 import index.RSIndexScan;
 import iterator.Iterator;
 import iterator.FldSpec;
 import iterator.RelSpec;
-import iterator.CondExpr;
+import iterator.Sort;
+
 
 import java.io.*;
 import java.util.*;
 
-/**
- * Example "query" driver program for Task 8,
- * now updated to also try appending ".txt" if the user
- * references a missing file with no extension.
- */
+
 public class Query {
 
     public static void main(String[] args) {
@@ -29,7 +25,7 @@ public class Query {
 
         String dbName       = args[0];
         String qsName       = args[1];
-        String indexOption  = args[2];  // "Y" or "N"
+        String indexOption  = args[2];  // Y/N
         int    numBuf       = Integer.parseInt(args[3]);
 
         // Initialize disk/page counters.
@@ -54,7 +50,7 @@ public class Query {
             System.exit(1);
         }
 
-        // Run the query
+
         try {
             runQuery(querySpec, dbName, indexOption.equalsIgnoreCase("Y"), numBuf);
         } catch (Exception e) {
@@ -75,21 +71,17 @@ public class Query {
         int queryAttrIndex = spec.queryAttrNum;
         AttrType[] attrTypes = new AttrType[] {
                 new AttrType(AttrType.attrInteger),
-                new AttrType(AttrType.attrVector100D),
+                new AttrType(AttrType.attrReal),
                 new AttrType(AttrType.attrString),
-                new AttrType(AttrType.attrReal)
+                new AttrType(AttrType.attrVector100D)
         };
-
-// Define string sizes if there are any string attributes
-        short[] strSizes = new short[] { 30 };  // Adjust based on actual schema
-
-// Call fullScanNN() with schema details
-
+        // Define string sizes if there are any string attributes
+        short[] strSizes = new short[] { 30 };
+        // fullScanNN()
         if (spec.isRangeQuery) {
             int distance = spec.rangeOrK;
             System.out.println("Running RANGE query on attribute #" + queryAttrIndex
                                + " with distance <= " + distance);
-
             if (useIndex) {
                 int h = 10;
                 int L = 5;
@@ -171,9 +163,7 @@ public class Query {
         }
     }
 
-    /**
-     * For an index-based scan that returns a minimal (vector, pageNo) tuple.
-     */
+
     private static void dumpQueryResults(Iterator scan, Heapfile heap, List<Integer> outFields)
         throws Exception
     {
@@ -240,27 +230,23 @@ public class Query {
             // Set tuple header using schema passed as argument
             try {
                 t.setHdr((short) attrTypes.length, attrTypes, strSizes);
-
             } catch (Exception e) {
-
                 e.printStackTrace();
                 continue;
             }
-
             // Check if tuple actually has fields
             if (t.noOfFlds() == 0) {
                 System.out.println("ERROR: Tuple has no fields, skipping.");
                 continue;
             }
-
             // Validate requested field number
             if (vectFieldNo < 1 || vectFieldNo > t.noOfFlds()) {
                 System.out.println("ERROR: Requested field #" + vectFieldNo + " but tuple only has " + t.noOfFlds() + " fields.");
                 continue;
             }
-
-            // Check byte offset within bounds
-
+            System.out.println("DEBUG: Tuple Field Count = " + t.noOfFlds());
+            System.out.println("DEBUG: Expected Field Offsets = " + Arrays.toString(t.fldOffset));
+            System.out.println("DEBUG: Tuple Length = " + t.getLength());
 
             try {
                 Vector100Dtype v = t.get100DVectFld(vectFieldNo);
@@ -275,24 +261,58 @@ public class Query {
         }
 
         scan.closescan();
+        Iterator tupleIterator = new Iterator() {
+            private int index = 0;
+            public Tuple get_next() {
+                return (index < entries.size()) ? entries.get(index++).tuple : null;
+            }
+            public void close() {}
+        };
+        if (attrTypes[vectFieldNo - 1].attrType == AttrType.attrVector100D) {
+            // Use the new top‑k vector sort
+            Sort sortedIterator = new Sort(
+                    attrTypes,
+                    (short) attrTypes.length,
+                    strSizes,
+                    tupleIterator,
+                    vectFieldNo,
+                    new TupleOrder(TupleOrder.Ascending),
+                    200,      // sort field length for vector (if applicable)
+                    10,       // number of pages (or appropriate value)
+                    target,
+                    k
+            );
+            Tuple sortedTuple;
+            int rank = 1;
+            while ((sortedTuple = sortedIterator.get_next()) != null) {
+                Vector100Dtype vect = sortedTuple.get100DVectFld(vectFieldNo);
+                System.out.println("Rank #" + rank++ + " vector[0]=" + vect.getValue(0));
+            }
+            // Process sortedIterator…
+        } else {
+            // Use the regular sort for non‑vector attributes
+            Sort sortedIterator = new Sort(
+                    attrTypes,
+                    (short) attrTypes.length,
+                    strSizes,
+                    tupleIterator,
+                    vectFieldNo,
+                    new TupleOrder(TupleOrder.Ascending),
+                    30,
+                    10
+            );
+            Tuple sortedTuple;
+            int rank = 1;
+            while ((sortedTuple = sortedIterator.get_next()) != null) {
+                Vector100Dtype vect = sortedTuple.get100DVectFld(vectFieldNo);
+                System.out.println("Rank #" + rank++ + " vector[0]=" + vect.getValue(0));
+            }
 
-        entries.sort(Comparator.comparingInt(e -> e.dist));
-        int end = (k == 0 || k > entries.size()) ? entries.size() : k;
-        System.out.println("Full-scan NN found " + entries.size() + " total, returning " + end);
-
-        for (int i = 0; i < end; i++) {
-            NNEntry e = entries.get(i);
-            Vector100Dtype vect = e.tuple.get100DVectFld(vectFieldNo);
-            System.out.println("Rank #" + (i+1)
-                    + " dist=" + e.dist
-                    + " vector[0]=" + vect.getValue(0)
-                    + " RID(page="+ e.pageNo +", slot="+ e.slotNo +")");
         }
+
     }
 
-
-
-    private static int computeDistance(Vector100Dtype v1, Vector100Dtype v2) {
+    public static int computeDistance(Vector100Dtype v1, Vector100Dtype v2) {
         float sumSq = 0;
         for (int i = 0; i < 100; i++) {
             int diff = v1.getValue(i) - v2.getValue(i);
@@ -314,11 +334,6 @@ public class Query {
         }
     }
 
-    // ---------------------- PARSING ----------------------
-
-    /**
-     * Expects exactly one line in QSNAME with Range(...) or NN(...).
-     */
     private static QuerySpec parseQuerySpecFile(String qsName) throws IOException {
         try (BufferedReader br = new BufferedReader(new FileReader(qsName))) {
             String line = br.readLine();
@@ -356,7 +371,7 @@ public class Query {
 
         List<Integer> outFields = new ArrayList<>();
         if (parts.length == 4) {
-            // remove commas in the final chunk
+            // remove commas regex
             String lastPart = parts[3].trim().replaceAll(",", " ");
             String[] fs = lastPart.split("\\s+");
             for (String f : fs) {
@@ -365,7 +380,6 @@ public class Query {
         }
 
         Vector100Dtype vect = readVectorFile(vectorFile);
-
         QuerySpec spec = new QuerySpec();
         spec.isRangeQuery = true;
         spec.queryAttrNum = queryAttr;
@@ -412,9 +426,7 @@ public class Query {
         return spec;
     }
 
-    /**
-     * Updated method: tries `filename`, if not found tries `filename + ".txt"`.
-     */
+
     private static Vector100Dtype readVectorFile(String filename) throws IOException {
         filename = "sample_data/" +filename;
         // 1) Attempt direct file

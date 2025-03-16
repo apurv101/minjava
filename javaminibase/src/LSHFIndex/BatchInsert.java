@@ -7,22 +7,6 @@ import diskmgr.*;
 import java.io.*;
 import java.util.*;
 
-// Example command line:
-//   java LSHFIndex.BatchInsert 4 2 datafile.txt MyDB
-//
-// Where:
-//   h = 4
-//   L = 2
-//   datafile.txt = path to data file
-//   MyDB = name of the DB
-//
-// Data file format:
-//   1) line1: n (number of attributes)
-//   2) line2: n attribute type codes (1=int, 2=real, 3=string, 4=100D-vector)
-//   3) next n lines: values for first tuple
-//   4) next n lines: values for second tuple
-//   etc.
-//   - For a 100D-vector line (attr type=4), it contains 100 integers separated by whitespace.
 public class BatchInsert {
 
     public static void main(String[] args) {
@@ -51,7 +35,7 @@ public class BatchInsert {
             String[] typeTokens = br.readLine().trim().split("\\s+");
             if (typeTokens.length != n) {
                 throw new IllegalArgumentException(
-                    "Mismatch between declared attribute count and type codes provided."
+                        "Mismatch between declared attribute count and type codes provided."
                 );
             }
             int[] attrTypeCodes = new int[n];
@@ -60,10 +44,15 @@ public class BatchInsert {
                 System.out.println("Creating AttrType with value: " + attrTypeCodes[i]);
             }
 
-            // Create one LSHFIndex per 100D-vector attribute (type code=4)
+            // IMPORTANT: The ordering of attribute types must match what the DB expects.
+            // For example, if you want the 100D vector to be the last attribute (as required by the project),
+            // your data file should provide fields in that order. In our fixed code we assume the order is:
+            // Field 1: Integer, Field 2: String, Field 3: Real, Field 4: 100D-vector
+            //
+            // Create one LSHFIndex per 100D-vector attribute. We use (attrNumber = i+1) as key.
             Map<Integer, LSHFIndex> vectorIndexes = new HashMap<>();
             for (int i = 0; i < n; i++) {
-                int attrNum = i + 1;
+                int attrNum = i + 1; // 1-based attribute numbering
                 if (attrTypeCodes[i] == AttrType.attrVector100D) {
                     // Create the LSH-forest index for that attribute
                     LSHFIndex index = new LSHFIndex(h, L);
@@ -71,11 +60,10 @@ public class BatchInsert {
                 }
             }
 
-            // Initialize MiniBase for the given DB name.
-            // Using page size = 4096 bytes and 50 pages for demonstration.
+            // Initialize MiniBase using a page size of 4096 bytes and 50 pages for demonstration.
             SystemDefs sysdef = new SystemDefs(dbName, 4096, 50, "LRU");
 
-            // Create a heap file to store the actual data table
+            // Create a heap file to store the data table
             Heapfile heapfile = new Heapfile("batch_insert_output.in");
 
             int tupleCount = 0;
@@ -101,14 +89,9 @@ public class BatchInsert {
                 // Debug: print the tuple being processed
                 System.out.println("Processing tuple " + (tupleCount+1) + ": " + Arrays.toString(fieldValues));
 
-                // Create the tuple using our helper.
-
-
-
-
                 Tuple t = new Tuple();
 
-// Convert int[] to AttrType[]
+                // Build the schema
                 AttrType[] types = new AttrType[attrTypeCodes.length];
                 int strCount = 0;
                 for (int i = 0; i < attrTypeCodes.length; i++) {
@@ -118,32 +101,24 @@ public class BatchInsert {
                     }
                 }
 
-
-
-
-// Define string sizes (adjust length if you have multiple strings)
+                // Define string sizes (default size = 30 bytes)
                 short[] strSizes = new short[strCount];
-                Arrays.fill(strSizes, (short) 30); // Default string size = 30 bytes
-// ✅ Ensure the tuple header is set BEFORE inserting
+                Arrays.fill(strSizes, (short) 30);
+
+                // Set the tuple header
                 t.setHdr((short) attrTypeCodes.length, types, strSizes);
-// Populate the tuple with field values
+                // Populate the tuple with field values
                 t = createTuple(fieldValues, attrTypeCodes);
                 byte[] record = t.getTupleByteArray();
                 RID rid = heapfile.insertRecord(record);
 
-
-
-
-
-
-
                 System.out.println("DEBUG: Inserted tuple of length " + record.length);
                 tupleCount++;
 
-                // For each vector attribute, insert into the LSHFIndex.
+                // For each vector attribute, parse the vector and insert into the LSHFIndex.
+                // (Remember that the key in our vectorIndexes map is 1-based attribute number.)
                 for (int i = 0; i < n; i++) {
                     if (attrTypeCodes[i] == AttrType.attrVector100D) {
-                        // Parse the vector data.
                         int attrnum = i + 1;
                         short[] vectorData = parseVector100D(fieldValues[i]);
                         Vector100Dtype vect = new Vector100Dtype(vectorData);
@@ -159,16 +134,13 @@ public class BatchInsert {
                 System.out.println("DEBUG: Attribute " + i + " has type " + attrTypeCodes[i]);
             }
 
-
             // Write out each LSH index to a file named: DBNAME_attrIndex_h_L
             for (Map.Entry<Integer, LSHFIndex> entry : vectorIndexes.entrySet()) {
-                int attrNo = entry.getKey();  // 0-based
+                int attrNo = entry.getKey();
                 LSHFIndex index = entry.getValue();
                 String indexFileName = dbName + "_" + attrNo + "_" + h + "_" + L;
                 index.writeIndexToFile(indexFileName);
-                System.out.println("LSH-forest index for attr #" + attrNo
-                    + " written to " + indexFileName);
-
+                System.out.println("LSH-forest index for attr #" + attrNo + " written to " + indexFileName);
             }
             System.out.println("DEBUG: Created vectorIndexes map:");
             for (Map.Entry<Integer, LSHFIndex> entry : vectorIndexes.entrySet()) {
@@ -189,10 +161,6 @@ public class BatchInsert {
         }
     }
 
-    /**
-     * Helper that creates a basic Tuple object from the string values.
-     * For numeric fields, if an empty string is encountered, a default value is used.
-     */
     private static Tuple createTuple(String[] fieldValues, int[] attrTypeCodes) throws Exception {
         int n = fieldValues.length;
         AttrType[] types = new AttrType[n];
@@ -209,9 +177,8 @@ public class BatchInsert {
         }
 
         Tuple t = new Tuple();
-        t.setHdr((short)n, types, strSizes);
+        t.setHdr((short) n, types, strSizes);
 
-        // Set each field
         for (int i = 0; i < n; i++) {
             String val = fieldValues[i];
             switch (attrTypeCodes[i]) {
@@ -232,11 +199,10 @@ public class BatchInsert {
                     }
                     break;
                 case AttrType.attrString:
-                    // For strings, an empty string is allowed.
                     t.setStrFld(i+1, val);
                     break;
                 case AttrType.attrVector100D:
-                    // For vector fields, parsing is handled separately.
+                    // Parse the vector field (expecting 100 values)
                     short[] vectorData = parseVector100D(val);
                     Vector100Dtype vect = new Vector100Dtype(vectorData);
                     t.set100DVectFld(i+1, vect);
@@ -248,9 +214,6 @@ public class BatchInsert {
         return t;
     }
 
-    /**
-     * Parses a line containing 100 integers into a short[100] array.
-     */
     private static short[] parseVector100D(String line) {
         String[] tokens = line.split("\\s+");
         if (tokens.length != 100) {
@@ -261,7 +224,7 @@ public class BatchInsert {
         short[] arr = new short[100];
         for (int i = 0; i < 100; i++) {
             float value = Float.parseFloat(tokens[i]); // Parse as float
-            arr[i] = (short) value; // Cast float to short (truncates decimals)
+            arr[i] = (short) value; // Cast to short (this truncates decimals)
         }
         return arr;
     }

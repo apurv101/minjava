@@ -10,6 +10,8 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
+import static LSHFIndex.Query.computeDistance;
+
 public class LSHFIndex implements Serializable {
     private int h;  // number of hash functions per layer
     private int L;  // number of layers
@@ -63,7 +65,7 @@ public class LSHFIndex implements Serializable {
     
     // Nearest neighbor search: return the top 'count' entries nearest to the key.
     public List<LSHFEntry> nnSearch(KeyClass key, int count) throws IndexException, IOException {
-
+System.out.println("count : " + count);
         if (!(key instanceof Vector100DKey))
             throw new IndexException("Key must be of type Vector100DKey");
         Vector100DKey vKey = (Vector100DKey) key;
@@ -78,6 +80,10 @@ public class LSHFIndex implements Serializable {
         return result.subList(0, count);
     }
 
+
+
+
+
     public void writeIndexToFile(String filename) throws IOException {
         try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(filename))) {
             oos.writeObject(this); // Serialize the entire index object
@@ -88,16 +94,8 @@ public class LSHFIndex implements Serializable {
         }
     }
 
-    
-    // Helper method: compute Euclidean distance between two vectors (rounded to int).
-    private int computeDistance(Vector100Dtype v1, Vector100Dtype v2) {
-        float dist = 0;
-        for (int i = 0; i < 100; i++){
-            int diff = v1.getValue(i) - v2.getValue(i);
-            dist += diff * diff;
-        }
-        return (int) Math.sqrt(dist);
-    }
+
+
 
     public void loadIndexFromFile(String filename) throws IOException, ClassNotFoundException {
         File indexFile = new File(filename);

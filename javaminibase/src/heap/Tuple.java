@@ -42,8 +42,8 @@ public class Tuple implements GlobalConst{
    * private field
    * Array of offsets of the fields
    */
- 
-  private short [] fldOffset; 
+
+  public short [] fldOffset;
 
    /**
     * Class constructor
@@ -333,6 +333,10 @@ public class Tuple implements GlobalConst{
       }
 
       int pos = fldOffset[fldNo - 1];
+
+      System.out.println("DEBUG: Reading Vector100D at Field #" + fldNo + ", Offset = " + pos);
+      System.out.println("DEBUG: Data Length = " + data.length);
+      System.out.println("DEBUG: Tuple Length = " + getLength());
 
       // Validate available size
       if (pos + 200 > data.length) {

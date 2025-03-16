@@ -9,9 +9,7 @@ import global.AttrType;
 
 import java.util.Arrays;
 
-/**
- * Helper class to check heap file existence in MiniBase and optionally display records.
- */
+
 public class HeapFileHelper {
 
     public static void main(String[] args) {
@@ -27,7 +25,7 @@ public class HeapFileHelper {
         String heapFileName = args[1];
         String mode = args[2];
 
-        // Initialize MiniBase
+
         new SystemDefs(dbName, 0, 50, "LRU");
 
         if (mode.equalsIgnoreCase("check")) {
@@ -39,11 +37,7 @@ public class HeapFileHelper {
         }
     }
 
-    /**
-     * Checks if a given heap file exists in MiniBase.
-     *
-     * @param heapFileName The name of the heap file
-     */
+
     public static void checkHeapFileExists(String heapFileName) {
         try {
             System.out.println("\nChecking if heap file exists in MiniBase...");
@@ -55,11 +49,7 @@ public class HeapFileHelper {
         }
     }
 
-    /**
-     * Dumps records from the specified heap file.
-     *
-     * @param heapFileName The name of the heap file
-     */
+
     public static void dumpHeapFileRecords(String heapFileName) {
         try {
             Heapfile heapfile = new Heapfile(heapFileName);
@@ -67,13 +57,12 @@ public class HeapFileHelper {
             Tuple tuple = new Tuple();
             RID rid = new RID();
 
-            System.out.println("\n📂 Dumping records from heap file: " + heapFileName);
+            System.out.println("\nDumping records from heap file: " + heapFileName);
 
             int recordCount = 0;
             while ((tuple = scan.getNext(rid)) != null) {
                 recordCount++;
 
-                // Set a header if needed (adjust attribute types accordingly)
                 AttrType[] attrTypes = new AttrType[]{ new AttrType(AttrType.attrString) };
                 short[] strSizes = new short[]{30}; // Modify based on your schema
                 tuple.setHdr((short) attrTypes.length, attrTypes, strSizes);
@@ -82,9 +71,9 @@ public class HeapFileHelper {
             }
 
             scan.closescan();
-            System.out.println("✅ Heap file scan complete. Total records: " + recordCount);
+            System.out.println("Heap file scan complete. Total records: " + recordCount);
         } catch (Exception e) {
-            System.out.println("❌ Error reading heap file records.");
+            System.out.println("Error reading heap file records.");
             e.printStackTrace();
         }
     }

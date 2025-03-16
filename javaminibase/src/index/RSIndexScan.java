@@ -66,7 +66,7 @@ public class RSIndexScan extends Iterator {
         if (indexType.indexType == IndexType.LSHFIndex) {
             System.out.println("Loading LSHF Index from file: " + indName);
             this.lshfIndex = new LSHFIndex(5, 10);  // Initialize empty
-            this.lshfIndex.loadIndexFromFile(indName);  // ✅ Load index from file
+            this.lshfIndex.loadIndexFromFile(indName);  //  Load index from file
             System.out.println("Index successfully loaded.");
         } else {
             throw new IndexException("Unsupported index type in RSIndexScan.");

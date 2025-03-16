@@ -305,18 +305,26 @@ public class Convert{
 
 
     // -------------- GET 100D VECTOR --------------
-public static Vector100Dtype get100DVectorValue(int position, byte[] data)
-       throws IOException
-{
-    short[] arr = new short[100];
-    int offset = position;
-    // Reuse getShortValue to read each of the 100 shorts
-    for (int i = 0; i < 100; i++) {
-        arr[i] = getShortValue(offset, data);
-        offset += 2; // 2 bytes per short
+    public static Vector100Dtype get100DVectorValue(int position, byte[] data)
+            throws IOException
+    {
+
+
+        short[] arr = new short[100];
+        int offset = position;
+
+        for (int i = 0; i < 100; i++) {
+            if (offset + 2 > data.length) {
+                throw new IOException("ERROR: Trying to read beyond array size at index " + i + ", offset " + offset);
+            }
+
+            arr[i] = getShortValue(offset, data);
+            offset += 2; // Move to next short (2 bytes)
+        }
+
+        return new Vector100Dtype(arr);
     }
-    return new Vector100Dtype(arr);
-}
+
 
 // -------------- SET 100D VECTOR --------------
 public static void set100DVectorValue(Vector100Dtype value, int position, byte[] data)
