@@ -38,7 +38,7 @@ public class Query {
         // Open the existing DB
         SystemDefs sysdef = null;
         try {
-            sysdef = new SystemDefs(dbName, 4096, numBuf, "Clock");
+            sysdef = new SystemDefs(dbName, 0, numBuf, "Clock");
         } catch (Exception e) {
             System.err.println("Could not open existing DB: " + e.getMessage());
             e.printStackTrace();
@@ -73,6 +73,17 @@ public class Query {
         Heapfile heap = new Heapfile(heapFileName);
 
         int queryAttrIndex = spec.queryAttrNum;
+        AttrType[] attrTypes = new AttrType[] {
+                new AttrType(AttrType.attrInteger),
+                new AttrType(AttrType.attrVector100D),
+                new AttrType(AttrType.attrString),
+                new AttrType(AttrType.attrReal)
+        };
+
+// Define string sizes if there are any string attributes
+        short[] strSizes = new short[] { 30 };  // Adjust based on actual schema
+
+// Call fullScanNN() with schema details
 
         if (spec.isRangeQuery) {
             int distance = spec.rangeOrK;
@@ -80,34 +91,45 @@ public class Query {
                                + " with distance <= " + distance);
 
             if (useIndex) {
-                int h = 4;
-                int L = 3;
+                int h = 10;
+                int L = 5;
                 String indexFileName = dbName + "_" + queryAttrIndex + "_" + h + "_" + L;
+                System.out.println("DEBUG: Query Attr Index = " + queryAttrIndex);
+                System.out.println("DEBUG: Expected Index File = " + indexFileName);
+                // Load the index from the file
+                LSHFIndex index = new LSHFIndex(h, L);
+                try {
+                    index.loadIndexFromFile(indexFileName);
+                } catch (IOException | ClassNotFoundException e) {
+                    System.err.println("Failed to load index from file: " + indexFileName);
+                    e.printStackTrace();
+                    return;  // Stop execution if index loading fails
+                }
 
                 AttrType[] inTypes = { new AttrType(AttrType.attrVector100D) };
                 short[] str_sizes = new short[0];
                 FldSpec[] proj = { new FldSpec(new RelSpec(RelSpec.outer), 1) };
 
                 RSIndexScan scan = new RSIndexScan(
-                    new IndexType(IndexType.LSHFIndex),
-                    heapFileName,
-                    indexFileName,
-                    inTypes,
-                    str_sizes,
-                    1,   // noInFlds
-                    1,   // noOutFlds
-                    proj,
-                    null,
-                    1,
-                    spec.targetVector,
-                    distance
+                        new IndexType(IndexType.LSHFIndex),
+                        heapFileName,
+                        indexFileName,
+                        inTypes,
+                        str_sizes,
+                        1,   // noInFlds
+                        1,   // noOutFlds
+                        proj,
+                        null,
+                        1,
+                        spec.targetVector,
+                        distance
                 );
 
                 dumpQueryResults(scan, heap, spec.outputFields);
                 scan.close();
             }
             else {
-                fullScanRange(heap, queryAttrIndex, spec.targetVector, distance, spec.outputFields);
+                fullScanRange(heap, queryAttrIndex, spec.targetVector, distance, spec.outputFields,attrTypes,strSizes);
             }
         }
         else {
@@ -116,8 +138,9 @@ public class Query {
             System.out.println("Running NN query on attribute #" + queryAttrIndex + " with k=" + k);
 
             if (useIndex) {
-                int h = 4;
-                int L = 3;
+                System.out.println("running query with index");
+                int h = 10;
+                int L = 5;
                 String indexFileName = dbName + "_" + queryAttrIndex + "_" + h + "_" + L;
 
                 AttrType[] inTypes = { new AttrType(AttrType.attrVector100D) };
@@ -130,11 +153,11 @@ public class Query {
                     indexFileName,
                     inTypes,
                     str_sizes,
-                    1,   // noInFlds
-                    1,   // noOutFlds
+                    1,
+                    1,
                     proj,
                     null,
-                    1,   // field number
+                    1,
                     spec.targetVector,
                     k
                 );
@@ -143,7 +166,7 @@ public class Query {
                 scan.close();
             }
             else {
-                fullScanNN(heap, queryAttrIndex, spec.targetVector, k, spec.outputFields);
+                fullScanNN(heap, queryAttrIndex, spec.targetVector, k, spec.outputFields,attrTypes,strSizes);
             }
         }
     }
@@ -168,7 +191,9 @@ public class Query {
                                       int vectFieldNo,
                                       Vector100Dtype target,
                                       int distance,
-                                      List<Integer> outFields)
+                                      List<Integer> outFields,
+                                      AttrType[] attrTypes,
+                                      short[] strSizes)
         throws Exception
     {
         System.out.println("Doing full-scan range, dist<=" + distance + ", on field #" + vectFieldNo);
@@ -179,6 +204,8 @@ public class Query {
         int count = 0;
 
         while ((t = scan.getNext(rid)) != null) {
+
+            t.setHdr((short) attrTypes.length, attrTypes, strSizes);
             // If needed, setHdr(...) for your known schema
             Vector100Dtype v = t.get100DVectFld(vectFieldNo);
             int dist = computeDistance(v, target);
@@ -196,8 +223,10 @@ public class Query {
                                    int vectFieldNo,
                                    Vector100Dtype target,
                                    int k,
-                                   List<Integer> outFields)
-        throws Exception
+                                   List<Integer> outFields,
+                                   AttrType[] attrTypes,
+                                   short[] strSizes) // <-- Pass schema here
+            throws Exception
     {
         System.out.println("Doing full-scan NN, top K=" + k + ", on field #" + vectFieldNo);
         Scan scan = heap.openScan();
@@ -207,11 +236,44 @@ public class Query {
         List<NNEntry> entries = new ArrayList<>();
 
         while ((t = scan.getNext(rid)) != null) {
-            Vector100Dtype v = t.get100DVectFld(vectFieldNo);
-            int dist = computeDistance(v, target);
-            Tuple tcopy = new Tuple(t);
-            entries.add(new NNEntry(dist, tcopy, rid.pageNo.pid, rid.slotNo));
+
+            // Set tuple header using schema passed as argument
+            try {
+                t.setHdr((short) attrTypes.length, attrTypes, strSizes);
+
+            } catch (Exception e) {
+
+                e.printStackTrace();
+                continue;
+            }
+
+            // Check if tuple actually has fields
+            if (t.noOfFlds() == 0) {
+                System.out.println("ERROR: Tuple has no fields, skipping.");
+                continue;
+            }
+
+            // Validate requested field number
+            if (vectFieldNo < 1 || vectFieldNo > t.noOfFlds()) {
+                System.out.println("ERROR: Requested field #" + vectFieldNo + " but tuple only has " + t.noOfFlds() + " fields.");
+                continue;
+            }
+
+            // Check byte offset within bounds
+
+
+            try {
+                Vector100Dtype v = t.get100DVectFld(vectFieldNo);
+                int dist = computeDistance(v, target);
+                Tuple tcopy = new Tuple(t);
+                entries.add(new NNEntry(dist, tcopy, rid.pageNo.pid, rid.slotNo));
+            } catch (Exception e) {
+                System.out.println("ERROR: Failed to read tuple field #" + vectFieldNo);
+                e.printStackTrace();
+                continue;
+            }
         }
+
         scan.closescan();
 
         entries.sort(Comparator.comparingInt(e -> e.dist));
@@ -221,12 +283,14 @@ public class Query {
         for (int i = 0; i < end; i++) {
             NNEntry e = entries.get(i);
             Vector100Dtype vect = e.tuple.get100DVectFld(vectFieldNo);
-            System.out.println("Rank #"+(i+1)
-                               + " dist=" + e.dist
-                               + " vector[0]=" + vect.getValue(0)
-                               + " RID(page="+ e.pageNo +", slot="+ e.slotNo +")");
+            System.out.println("Rank #" + (i+1)
+                    + " dist=" + e.dist
+                    + " vector[0]=" + vect.getValue(0)
+                    + " RID(page="+ e.pageNo +", slot="+ e.slotNo +")");
         }
     }
+
+
 
     private static int computeDistance(Vector100Dtype v1, Vector100Dtype v2) {
         float sumSq = 0;
@@ -352,6 +416,7 @@ public class Query {
      * Updated method: tries `filename`, if not found tries `filename + ".txt"`.
      */
     private static Vector100Dtype readVectorFile(String filename) throws IOException {
+        filename = "sample_data/" +filename;
         // 1) Attempt direct file
         File f = new File(filename);
         if (!f.exists()) {

@@ -37,7 +37,6 @@ public class BatchInsert {
         String dataFileName = args[2];                // data filename
         String dbName = args[3];                      // DB name
 
-        // Initialize disk/page counters so we can report reads/writes after insertion.
         PCounter.initialize();
 
         BufferedReader br = null;
@@ -64,10 +63,11 @@ public class BatchInsert {
             // Create one LSHFIndex per 100D-vector attribute (type code=4)
             Map<Integer, LSHFIndex> vectorIndexes = new HashMap<>();
             for (int i = 0; i < n; i++) {
+                int attrNum = i + 1;
                 if (attrTypeCodes[i] == AttrType.attrVector100D) {
                     // Create the LSH-forest index for that attribute
                     LSHFIndex index = new LSHFIndex(h, L);
-                    vectorIndexes.put(i, index);
+                    vectorIndexes.put(attrNum, index);
                 }
             }
 
@@ -102,9 +102,41 @@ public class BatchInsert {
                 System.out.println("Processing tuple " + (tupleCount+1) + ": " + Arrays.toString(fieldValues));
 
                 // Create the tuple using our helper.
-                Tuple t = createTuple(fieldValues, attrTypeCodes);
+
+
+
+
+                Tuple t = new Tuple();
+
+// Convert int[] to AttrType[]
+                AttrType[] types = new AttrType[attrTypeCodes.length];
+                int strCount = 0;
+                for (int i = 0; i < attrTypeCodes.length; i++) {
+                    types[i] = new AttrType(attrTypeCodes[i]);
+                    if (attrTypeCodes[i] == AttrType.attrString) {
+                        strCount++;
+                    }
+                }
+
+
+
+
+// Define string sizes (adjust length if you have multiple strings)
+                short[] strSizes = new short[strCount];
+                Arrays.fill(strSizes, (short) 30); // Default string size = 30 bytes
+// ✅ Ensure the tuple header is set BEFORE inserting
+                t.setHdr((short) attrTypeCodes.length, types, strSizes);
+// Populate the tuple with field values
+                t = createTuple(fieldValues, attrTypeCodes);
                 byte[] record = t.getTupleByteArray();
                 RID rid = heapfile.insertRecord(record);
+
+
+
+
+
+
+
                 System.out.println("DEBUG: Inserted tuple of length " + record.length);
                 tupleCount++;
 
@@ -112,15 +144,21 @@ public class BatchInsert {
                 for (int i = 0; i < n; i++) {
                     if (attrTypeCodes[i] == AttrType.attrVector100D) {
                         // Parse the vector data.
+                        int attrnum = i + 1;
                         short[] vectorData = parseVector100D(fieldValues[i]);
                         Vector100Dtype vect = new Vector100Dtype(vectorData);
                         Vector100DKey key = new Vector100DKey(vect);
-                        vectorIndexes.get(i).insert(key, rid);
+                        vectorIndexes.get(attrnum).insert(key, rid);
                     }
                 }
             }
 
             System.out.println("Inserted " + tupleCount + " tuples into heapfile.");
+
+            for (int i = 0; i < attrTypeCodes.length; i++) {
+                System.out.println("DEBUG: Attribute " + i + " has type " + attrTypeCodes[i]);
+            }
+
 
             // Write out each LSH index to a file named: DBNAME_attrIndex_h_L
             for (Map.Entry<Integer, LSHFIndex> entry : vectorIndexes.entrySet()) {
@@ -130,8 +168,14 @@ public class BatchInsert {
                 index.writeIndexToFile(indexFileName);
                 System.out.println("LSH-forest index for attr #" + attrNo
                     + " written to " + indexFileName);
+
+            }
+            System.out.println("DEBUG: Created vectorIndexes map:");
+            for (Map.Entry<Integer, LSHFIndex> entry : vectorIndexes.entrySet()) {
+                System.out.println("DEBUG: Attribute " + entry.getKey() + " -> Index Object: " + entry.getValue());
             }
 
+            SystemDefs.JavabaseBM.flushAllPages();
             // Print out disk I/O counters
             System.out.println("\nDisk pages read   : " + PCounter.rcounter);
             System.out.println("Disk pages written: " + PCounter.wcounter);
@@ -211,12 +255,13 @@ public class BatchInsert {
         String[] tokens = line.split("\\s+");
         if (tokens.length != 100) {
             throw new IllegalArgumentException(
-                "Expected 100 integers for a 100D-vector, found " + tokens.length
+                    "Expected 100 values for a 100D-vector, found " + tokens.length
             );
         }
         short[] arr = new short[100];
         for (int i = 0; i < 100; i++) {
-            arr[i] = Short.parseShort(tokens[i]);
+            float value = Float.parseFloat(tokens[i]); // Parse as float
+            arr[i] = (short) value; // Cast float to short (truncates decimals)
         }
         return arr;
     }

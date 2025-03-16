@@ -45,7 +45,7 @@ public class RSIndexScan extends Iterator {
                        int fldNum,
                        Vector100Dtype query,
                        int distance)
-            throws IOException, IndexException {
+            throws IOException, IndexException, ClassNotFoundException {
         this.indexType = index;  // should be IndexType.LSHFIndex
         this.relName = relName;
         this.indName = indName;
@@ -63,9 +63,16 @@ public class RSIndexScan extends Iterator {
         // Create (or open) an LSHFIndex instance.
         // In a full implementation, this index would be persistent.
         lshfIndex = new LSHFIndex(5, 10);
-        
+        if (indexType.indexType == IndexType.LSHFIndex) {
+            System.out.println("Loading LSHF Index from file: " + indName);
+            this.lshfIndex = new LSHFIndex(5, 10);  // Initialize empty
+            this.lshfIndex.loadIndexFromFile(indName);  // ✅ Load index from file
+            System.out.println("Index successfully loaded.");
+        } else {
+            throw new IndexException("Unsupported index type in RSIndexScan.");
+        }
         // Assume the index is already populated.
-        resultList = lshfIndex.rangeSearch(new Vector100DKey(query), distance);
+        this.resultList = this.lshfIndex.rangeSearch(new Vector100DKey(query), distance);
     }
     
     public Tuple get_next() throws IOException, IndexException {

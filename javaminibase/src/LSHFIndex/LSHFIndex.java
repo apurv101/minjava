@@ -5,11 +5,9 @@ import global.RID;
 import btree.KeyClass;
 import index.IndexException;
 
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.ObjectOutputStream;
-import java.io.Serializable;
+import java.io.*;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 public class LSHFIndex implements Serializable {
@@ -18,10 +16,11 @@ public class LSHFIndex implements Serializable {
     // For simplicity, we store all entries in an in‑memory list.
     private List<LSHFEntry> entries;
     
-    public LSHFIndex(int h, int L) {
+    public LSHFIndex(int h, int L) throws IOException, ClassNotFoundException {
         this.h = h;
         this.L = L;
         entries = new ArrayList<>();
+
     }
     
     // Insert a new entry into the index.
@@ -58,11 +57,13 @@ public class LSHFIndex implements Serializable {
             if (dist <= distance)
                 result.add(entry);
         }
+        result.sort(Comparator.comparingInt(e -> computeDistance(vKey.key, e.key.key)));
         return result;
     }
     
     // Nearest neighbor search: return the top 'count' entries nearest to the key.
     public List<LSHFEntry> nnSearch(KeyClass key, int count) throws IndexException, IOException {
+
         if (!(key instanceof Vector100DKey))
             throw new IndexException("Key must be of type Vector100DKey");
         Vector100DKey vKey = (Vector100DKey) key;
@@ -97,4 +98,23 @@ public class LSHFIndex implements Serializable {
         }
         return (int) Math.sqrt(dist);
     }
+
+    public void loadIndexFromFile(String filename) throws IOException, ClassNotFoundException {
+        File indexFile = new File(filename);
+        if (!indexFile.exists()) {
+            System.out.println("DEBUG: Index file not found, starting fresh." + filename);
+            return;
+        }
+
+        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(indexFile))) {
+            LSHFIndex loadedIndex = (LSHFIndex) ois.readObject();
+            this.entries = loadedIndex.entries; // Load saved entries
+            System.out.println("DEBUG: Loaded " + entries.size() + " entries from index file.");
+        } catch (IOException | ClassNotFoundException e) {
+            System.out.println("ERROR: Failed to load index from file.");
+            e.printStackTrace();
+            throw e;
+        }
+    }
+
 }

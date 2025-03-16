@@ -4,6 +4,8 @@ package heap;
 
 import java.io.*;
 import java.lang.*;
+import java.util.Arrays;
+
 import global.*;
 
 
@@ -325,18 +327,20 @@ public class Tuple implements GlobalConst{
 
 
   // -------------- GET 100D VECTOR --------------
-public Vector100Dtype get100DVectFld(int fldNo)
-       throws IOException, FieldNumberOutOfBoundException
-{
-    if ((fldNo <= 0) || (fldNo > fldCnt)) {
-        throw new FieldNumberOutOfBoundException(null, "TUPLE:FIELNO_OUT_OF_BOUND");
-    }
+  public Vector100Dtype get100DVectFld(int fldNo) throws IOException, FieldNumberOutOfBoundException {
+      if (fldNo <= 0 || fldNo > fldCnt) {
+          throw new FieldNumberOutOfBoundException(null, "TUPLE:FIELNO_OUT_OF_BOUND");
+      }
 
-    // Use the offset array to find the correct position
-    int pos = fldOffset[fldNo - 1];
-    // Rely on Convert to parse the 100D vector from data
-    return Convert.get100DVectorValue(pos, data);
-}
+      int pos = fldOffset[fldNo - 1];
+
+      // Validate available size
+      if (pos + 200 > data.length) {
+          throw new IOException("ERROR: Cannot read 100D vector, insufficient bytes at position " + pos);
+      }
+
+      return Convert.get100DVectorValue(pos, data);
+  }
 
 // -------------- SET 100D VECTOR --------------
 public Tuple set100DVectFld(int fldNo, Vector100Dtype val)
@@ -463,13 +467,33 @@ public void setHdr (short numFlds,  AttrType types[], short strSizes[])
     throw new InvalidTypeException (null, "TUPLE: TUPLE_TYPE_ERROR");
    }
 
-  fldOffset[numFlds] = (short) (fldOffset[i-1] + incr);
+    fldOffset[numFlds] = (short) (fldOffset[numFlds - 1] + incr);
+
+
+
+// ✅ Fix incorrect allocation for Vector100D
+    if (types[numFlds - 1].attrType == AttrType.attrVector100D) {
+        if (fldOffset[numFlds] < fldOffset[numFlds - 1] + 200) {
+            System.out.println("🔴 ERROR: Vector100D field does not have enough space! Fixing...");
+            fldOffset[numFlds] = (short) (fldOffset[numFlds - 1] + 200);
+        }
+    }
+
   Convert.setShortValue(fldOffset[numFlds], pos, data);
-  
   tuple_length = fldOffset[numFlds] - tuple_offset;
 
   if(tuple_length > max_size)
    throw new InvalidTupleSizeException (null, "TUPLE: TUPLE_TOOBIG_ERROR");
+    System.out.println("DEBUG: Final Field Offset = " + fldOffset[numFlds]);
+    System.out.println("DEBUG: Expected min size for 100D vector = " + (fldOffset[numFlds - 1] + 200));
+
+    System.out.println("DEBUG: Field count = " + fldCnt);
+    System.out.println("DEBUG: Field Offsets = " + Arrays.toString(fldOffset));
+    System.out.println("DEBUG: Final Tuple Length = " + tuple_length);
+
+
+
+
 }
      
   
@@ -579,5 +603,9 @@ public void setHdr (short numFlds,  AttrType types[], short strSizes[])
    {
       return 0;
    }
+
+    public int getFieldCnt() {
+      return fldCnt;
+    }
 }
 

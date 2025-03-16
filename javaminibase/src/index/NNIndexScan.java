@@ -45,7 +45,7 @@ public class NNIndexScan extends Iterator {
                        int fldNum,
                        Vector100Dtype query,
                        int count)
-            throws IOException, IndexException {
+            throws IOException, IndexException, ClassNotFoundException {
         this.indexType = index;  // should be IndexType.LSHFIndex
         this.relName = relName;
         this.indName = indName;
@@ -61,7 +61,9 @@ public class NNIndexScan extends Iterator {
         this.current = 0;
         
         lshfIndex = new LSHFIndex(5, 10);
-        
+        System.out.println("Loading LSHF Index from file: " + indName);
+        this.lshfIndex = new LSHFIndex(5, 10);  // Initialize empty
+        this.lshfIndex.loadIndexFromFile(indName);
         // Assume the index is already populated.
         resultList = lshfIndex.nnSearch(new Vector100DKey(query), count);
     }
