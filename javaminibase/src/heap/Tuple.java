@@ -326,7 +326,7 @@ public class Tuple implements GlobalConst{
   }
 
 
-  // -------------- GET 100D VECTOR --------------
+  // getter
   public Vector100Dtype get100DVectFld(int fldNo) throws IOException, FieldNumberOutOfBoundException {
       if (fldNo <= 0 || fldNo > fldCnt) {
           throw new FieldNumberOutOfBoundException(null, "TUPLE:FIELNO_OUT_OF_BOUND");
@@ -346,7 +346,7 @@ public class Tuple implements GlobalConst{
       return Convert.get100DVectorValue(pos, data);
   }
 
-// -------------- SET 100D VECTOR --------------
+// setter
 public Tuple set100DVectFld(int fldNo, Vector100Dtype val)
        throws IOException, FieldNumberOutOfBoundException
 {
@@ -436,7 +436,7 @@ public void setHdr (short numFlds,  AttrType types[], short strSizes[])
      break;
 
    case AttrType.attrVector100D:
-    // We store 100 * 2 bytes = 200 bytes for the vector
+    // storing 100 * 2 bytes for the vector
     incr = 200;
     break;       
  
@@ -463,7 +463,7 @@ public void setHdr (short numFlds,  AttrType types[], short strSizes[])
      break;
 
     case AttrType.attrVector100D:
-    // We store 100 * 2 bytes = 200 bytes for the vector
+    //  storing 100 * 2 bytes for the vector
       incr = 200;
       break;     
 

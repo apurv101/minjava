@@ -161,7 +161,7 @@ public class PredEval
 				op_res = (distVal != thresh);
 				break;
 			default:
-				// possibly handle aopNOT or else
+
 				break;
 			}
 

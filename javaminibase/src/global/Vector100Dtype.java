@@ -3,7 +3,6 @@ package global;
 import java.io.Serializable;
 
 public class Vector100Dtype implements Serializable {
-    // An easy way is to store 100 short values (2 bytes each).
     // Each short can range from -10000 to 10000.
     private short[] values;
 
@@ -28,10 +27,9 @@ public class Vector100Dtype implements Serializable {
         values[index] = val;
     }
 
-    // Optionally a getter for the entire internal array
     public short[] getValues() {
         return values;
     }
 
-    // Optionally a toString(), equals(), hashCode(), etc.
+
 }

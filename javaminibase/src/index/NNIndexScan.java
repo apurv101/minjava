@@ -46,7 +46,7 @@ public class NNIndexScan extends Iterator {
                        Vector100Dtype query,
                        int count)
             throws IOException, IndexException, ClassNotFoundException {
-        this.indexType = index;  // should be IndexType.LSHFIndex
+        this.indexType = index;
         this.relName = relName;
         this.indName = indName;
         this.types = types;
@@ -64,7 +64,6 @@ public class NNIndexScan extends Iterator {
         System.out.println("Loading LSHF Index from file: " + indName);
         this.lshfIndex = new LSHFIndex(5, 10);  // Initialize empty
         this.lshfIndex.loadIndexFromFile(indName);
-        // Assume the index is already populated.
         resultList = lshfIndex.nnSearch(new Vector100DKey(query), count);
     }
     
@@ -73,7 +72,6 @@ public class NNIndexScan extends Iterator {
             return null;
         LSHFEntry entry = resultList.get(current++);
         Tuple t = new Tuple();
-        // For demonstration, return a tuple with two fields:
         // 1) the vector key (attrVector100D)
         // 2) an integer (e.g., RID's page number)
         AttrType[] retTypes = new AttrType[2];
@@ -92,9 +90,7 @@ public class NNIndexScan extends Iterator {
     }
     
     public void close() throws IOException, IndexException {
-        // Nothing to close in this in-memory simulation.
     }
 }
 
 
-// testing

@@ -60,7 +60,7 @@ public class BatchInsert {
                 }
             }
 
-            // Initialize MiniBase using a page size of 4096 bytes and 50 pages for demonstration.
+            // Initialize MiniBase using a page size of 4096 bytes and 50 pages
             SystemDefs sysdef = new SystemDefs(dbName, 4096, 50, "LRU");
 
             // Create a heap file to store the data table
@@ -111,15 +111,14 @@ public class BatchInsert {
                 t = createTuple(fieldValues, attrTypeCodes);
                 byte[] record = t.getTupleByteArray();
                 RID rid = heapfile.insertRecord(record);
-
                 System.out.println("DEBUG: Inserted tuple of length " + record.length);
                 tupleCount++;
 
                 // For each vector attribute, parse the vector and insert into the LSHFIndex.
-                // (Remember that the key in our vectorIndexes map is 1-based attribute number.)
+
                 for (int i = 0; i < n; i++) {
                     if (attrTypeCodes[i] == AttrType.attrVector100D) {
-                        int attrnum = i + 1;
+                        int attrnum = i +1;
                         short[] vectorData = parseVector100D(fieldValues[i]);
                         Vector100Dtype vect = new Vector100Dtype(vectorData);
                         Vector100DKey key = new Vector100DKey(vect);

@@ -77,7 +77,7 @@ public class Query {
         };
         // Define string sizes if there are any string attributes
         short[] strSizes = new short[] { 30 };
-        // fullScanNN()
+        // Range Query
         if (spec.isRangeQuery) {
             int distance = spec.rangeOrK;
             System.out.println("Running RANGE query on attribute #" + queryAttrIndex

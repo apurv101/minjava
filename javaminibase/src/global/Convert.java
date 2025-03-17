@@ -304,7 +304,7 @@ public class Convert{
     }
 
 
-    // -------------- GET 100D VECTOR --------------
+    // getter
     public static Vector100Dtype get100DVectorValue(int position, byte[] data)
             throws IOException
     {
@@ -319,14 +319,14 @@ public class Convert{
             }
 
             arr[i] = getShortValue(offset, data);
-            offset += 2; // Move to next short (2 bytes)
+            offset += 2; // Move to next short
         }
 
         return new Vector100Dtype(arr);
     }
 
 
-// -------------- SET 100D VECTOR --------------
+// setter
 public static void set100DVectorValue(Vector100Dtype value, int position, byte[] data)
        throws IOException
 {

@@ -19,7 +19,7 @@ public class Vector100DKey extends KeyClass implements Serializable {
         if (!(obj instanceof Vector100DKey))
             throw new ClassCastException("Not a Vector100DKey");
         Vector100DKey other = (Vector100DKey) obj;
-        // For simplicity, compare based on the sum of squares of components.
+        //  compare based on the sum of squares of components.
         int sum1 = 0, sum2 = 0;
         for (int i = 0; i < 100; i++) {
             sum1 += key.getValue(i) * key.getValue(i);

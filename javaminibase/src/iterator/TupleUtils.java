@@ -86,7 +86,7 @@ public class TupleUtils
       Vector100Dtype v1 = t1.get100DVectFld(t1_fld_no);
       Vector100Dtype v2 = t2.get100DVectFld(t2_fld_no);
 
-      // Compute Euclidean distance or whatever measure:
+      // Compute Euclidean distance
       float dist = 0.0f;
       for (int i = 0; i < 100; i++) {
         int diff = v1.getValue(i) - v2.getValue(i);
@@ -94,7 +94,7 @@ public class TupleUtils
       }
       dist = (float)Math.sqrt(dist);
 
-      // Return the integer version of that distance
+      // casting to int
       return (int) dist;
     } 
     catch (FieldNumberOutOfBoundException e) {

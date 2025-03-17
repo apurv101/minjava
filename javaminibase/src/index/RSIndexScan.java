@@ -1,5 +1,6 @@
 package index;
 
+import btree.*;
 import heap.Tuple;
 import global.AttrType;
 import global.IndexType;
@@ -12,6 +13,8 @@ import LSHFIndex.LSHFEntry;
 import iterator.FldSpec;
 import iterator.CondExpr;
 import iterator.Iterator;
+import iterator.UnknownKeyTypeException;
+
 import java.io.IOException;
 import java.util.List;
 
@@ -45,7 +48,7 @@ public class RSIndexScan extends Iterator {
                        int fldNum,
                        Vector100Dtype query,
                        int distance)
-            throws IOException, IndexException, ClassNotFoundException {
+            throws IOException, IndexException, ClassNotFoundException, ConstructPageException, GetFileEntryException, PinPageException, IteratorException, UnknownKeyTypeException, KeyNotMatchException, InvalidSelectionException, UnpinPageException {
         this.indexType = index;  // should be IndexType.LSHFIndex
         this.relName = relName;
         this.indName = indName;
@@ -61,7 +64,6 @@ public class RSIndexScan extends Iterator {
         this.current = 0;
         
         // Create (or open) an LSHFIndex instance.
-        // In a full implementation, this index would be persistent.
         lshfIndex = new LSHFIndex(5, 10);
         if (indexType.indexType == IndexType.LSHFIndex) {
             System.out.println("Loading LSHF Index from file: " + indName);
@@ -71,8 +73,8 @@ public class RSIndexScan extends Iterator {
         } else {
             throw new IndexException("Unsupported index type in RSIndexScan.");
         }
-        // Assume the index is already populated.
         this.resultList = this.lshfIndex.rangeSearch(new Vector100DKey(query), distance);
+
     }
     
     public Tuple get_next() throws IOException, IndexException {
@@ -80,7 +82,6 @@ public class RSIndexScan extends Iterator {
             return null;
         LSHFEntry entry = resultList.get(current++);
         Tuple t = new Tuple();
-        // For demonstration, output a tuple with two fields:
         // 1) attrVector100D (the key)
         // 2) an integer representing RID's page number.
         AttrType[] retTypes = new AttrType[2];
@@ -99,7 +100,6 @@ public class RSIndexScan extends Iterator {
     }
     
     public void close() throws IOException, IndexException {
-        // No resources to close in this in-memory simulation.
     }
 }
 

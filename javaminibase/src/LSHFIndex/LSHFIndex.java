@@ -59,7 +59,7 @@ public class LSHFIndex implements Serializable {
             if (dist <= distance)
                 result.add(entry);
         }
-        result.sort(Comparator.comparingInt(e -> computeDistance(vKey.key, e.key.key)));
+       
         return result;
     }
     
