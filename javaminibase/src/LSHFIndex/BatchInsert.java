@@ -137,7 +137,7 @@ public class BatchInsert {
             for (Map.Entry<Integer, LSHFIndex> entry : vectorIndexes.entrySet()) {
                 int attrNo = entry.getKey();
                 LSHFIndex index = entry.getValue();
-                String indexFileName = dbName + "_" + attrNo + "_" + h + "_" + L;
+                String indexFileName = dbName + "_" + attrNo + "_" + L + "_" + h;
                 index.writeIndexToFile(indexFileName);
                 System.out.println("LSH-forest index for attr #" + attrNo + " written to " + indexFileName);
             }
