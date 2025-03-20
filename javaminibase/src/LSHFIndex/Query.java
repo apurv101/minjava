@@ -428,7 +428,7 @@ public class Query {
 
 
     private static Vector100Dtype readVectorFile(String filename) throws IOException {
-        filename = "sample_data/" +filename;
+        // filename = "sample_data/" +filename;
         // 1) Attempt direct file
         File f = new File(filename);
         if (!f.exists()) {
